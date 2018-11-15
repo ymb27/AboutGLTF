@@ -70,17 +70,17 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <IncludePath>$(SolutionDir)3rdpart\gzip-hpp-0.1.0\include;$(SolutionDir)3rdpart\zlib-1.2.11\include\zlib;$(SolutionDir)3rdpart\zlib-1.2.11\include;$(SolutionDir)3rdpart\nlohmann\include;$(SolutionDir)3rdpart\fx-gltf-1.0.1\include;$(IncludePath)</IncludePath>
+    <IncludePath>$(SolutionDir)3rdpart\gzip-hpp-0.1.0\include;$(SolutionDir)3rdpart\zlib-1.2.11\include\zlib;$(SolutionDir)3rdpart\zlib-1.2.11\include;$(SolutionDir)3rdpart\tinygltf\include;$(IncludePath)</IncludePath>
     <LibraryPath>$(SolutionDir)3rdpart\zlib-1.2.11\lib;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
-    <IncludePath>$(SolutionDir)3rdpart\gzip-hpp-0.1.0\include;$(SolutionDir)3rdpart\zlib-1.2.11\include\zlib;$(SolutionDir)3rdpart\zlib-1.2.11\include;$(SolutionDir)3rdpart\nlohmann\include;$(SolutionDir)3rdpart\fx-gltf-1.0.1\include;$(IncludePath)</IncludePath>
+    <IncludePath>$(SolutionDir)3rdpart\gzip-hpp-0.1.0\include;$(SolutionDir)3rdpart\zlib-1.2.11\include\zlib;$(SolutionDir)3rdpart\zlib-1.2.11\include;$(SolutionDir)3rdpart\tinygltf\include;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <IncludePath>$(SolutionDir)3rdpart\gzip-hpp-0.1.0\include;$(SolutionDir)3rdpart\zlib-1.2.11\include\zlib;$(SolutionDir)3rdpart\zlib-1.2.11\include;$(SolutionDir)3rdpart\nlohmann\include;$(SolutionDir)3rdpart\fx-gltf-1.0.1\include;$(IncludePath)</IncludePath>
+    <IncludePath>$(SolutionDir)3rdpart\gzip-hpp-0.1.0\include;$(SolutionDir)3rdpart\zlib-1.2.11\include\zlib;$(SolutionDir)3rdpart\zlib-1.2.11\include;$(SolutionDir)3rdpart\tinygltf\include;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <IncludePath>$(SolutionDir)3rdpart\gzip-hpp-0.1.0\include;$(SolutionDir)3rdpart\zlib-1.2.11\include\zlib;$(SolutionDir)3rdpart\zlib-1.2.11\include;$(SolutionDir)3rdpart\nlohmann\include;$(SolutionDir)3rdpart\fx-gltf-1.0.1\include;$(IncludePath)</IncludePath>
+    <IncludePath>$(SolutionDir)3rdpart\gzip-hpp-0.1.0\include;$(SolutionDir)3rdpart\zlib-1.2.11\include\zlib;$(SolutionDir)3rdpart\zlib-1.2.11\include;$(SolutionDir)3rdpart\tinygltf\include;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -139,10 +139,18 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="Encoder.cpp">
+      <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Release|x64'">_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <ClCompile Include="Helper.cpp" />
     <ClCompile Include="main.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Encoder.h" />
+    <ClInclude Include="Helper.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

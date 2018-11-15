@@ -58,8 +58,5 @@ gltf原buffer中包含的数据均可放在此处；binary chunk可以有多个
 
 chunk的格式较为统一，length说明该chunk的大小，单位字节；type仅有两种，一种是json chunk，另一种是binary chunk，不是这两种类型的chunk，默认实现是对其进行忽略；data数组则存储实际二进制数据。
 
-## 当前工作要求
 
-js解析器，将后台发送的一份二进制文件还原为一个glb文件并交予引擎解析。
 
-二进制文件包括了gz压缩的gltf json描述，以及draco压缩的buffer信息。
