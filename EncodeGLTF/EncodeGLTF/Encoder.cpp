@@ -10,12 +10,34 @@ using std::cout;
 using std::endl;
 using namespace GLTF_ENCODER;
 
-GE_STATE Encoder::EncodeFromAsciiMemory(std::string str) {
+// 全局变量
+struct {
 	tinygltf::Model model;
-	tinygltf::TinyGLTF loader;
 	std::string err;
 	std::string warn;
+} GVAR;
+
+GE_STATE Encoder::EncodeFromAsciiMemory(const std::string& jData) const {
+	GE_STATE state;
+	state = loadModel(jData);
+	if (state != GES_OK) return state;
+}
+
+std::string Encoder::GetErrorMsg() const { return GVAR.err; }
+std::string Encoder::GetWarnMsg() const { return GVAR.warn; }
+
+// private helper functions
+GE_STATE Encoder::loadModel(const std::string& jData) const {
 	std::string base_dir;
-	bool ret = loader.LoadASCIIFromString(&model, &err, &warn, str.c_str(), str.size(), base_dir);
-	return GES_OK;
+	tinygltf::TinyGLTF loader;
+	bool ret = loader.LoadASCIIFromString(&GVAR.model, &GVAR.err, &GVAR.warn, jData.c_str(), jData.size(), base_dir);
+	if (ret) return GES_OK;
+	else {
+		// 需要根据错误信息(err)判定返回的类型
+		return GES_ERR;
+	}
+}
+
+GE_STATE Encoder::makeMesh() const {
+
 }
