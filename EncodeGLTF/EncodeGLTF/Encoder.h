@@ -1,4 +1,5 @@
-#pragma once
+﻿#ifndef ENCODER_H
+#define ENCODER_H
 #include <string>
 
 namespace GLTF_ENCODER {
@@ -10,6 +11,6 @@ namespace GLTF_ENCODER {
 	public:
 		GE_STATE EncodeFromAsciiMemory(std::string);
 	private:
-		void* 
 	};
 }
+#endif // !ENCODER_H
