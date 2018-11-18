@@ -4,6 +4,12 @@
 // #define TINYGLTF_NOEXCEPTION // optional. disable exception handling
 #include <tinygltf/tiny_gltf.h>
 
+#include <draco/attributes/geometry_attribute.h>
+#include <draco/attributes/point_attribute.h>
+#include <draco/compression/encode.h>
+#include <draco/mesh/mesh.h>
+#include <draco/point_cloud/point_cloud.h>
+
 #include "Encoder.h"
 #include <iostream>
 using std::cout;
@@ -15,6 +21,8 @@ struct {
 	tinygltf::Model model;
 	std::string err;
 	std::string warn;
+
+	draco::Mesh mesh;
 } GVAR;
 
 GE_STATE Encoder::EncodeFromAsciiMemory(const std::string& jData) const {
@@ -40,4 +48,5 @@ GE_STATE Encoder::loadModel(const std::string& jData) const {
 
 GE_STATE Encoder::makeMesh() const {
 
+	return GES_OK;
 }
