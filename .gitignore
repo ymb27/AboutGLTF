@@ -1,3 +1,8 @@
 /EncodeGLTF/Debug
 /EncodeGLTF/EncodeGLTF/Debug
 /EncodeGLTF/.vs
+#忽略依赖平台的lib,dll文件，仅保留文件夹路径
+/EncodeGLTF/3rdpart/draco/bin/*.dll
+/EncodeGLTF/3rdpart/draco/bin/*.exe
+/EncodeGLTF/3rdpart/draco/lib/*.lib
+/EncodeGLTF/3rdpart/zlib-1.2.11/lib/*.lib
