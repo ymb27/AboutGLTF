@@ -1,4 +1,6 @@
 ﻿#include <draco/mesh/triangle_soup_mesh_builder.h>
+#include <draco/compression/encode.h>
+#include <draco/compression/decode.h>
 
 #define TINYGLTF_IMPLEMENTATION
 #define STB_IMAGE_IMPLEMENTATION
@@ -8,13 +10,15 @@
 
 #include "Encoder.h"
 #include <iostream>
+#include <utility>
 #include <memory>
 using std::unique_ptr;
 using namespace GLTF_ENCODER;
 
-#define MCOUT(string) std::cout << string << std::endl;
+#define TEST_COMPRESS
+#define MLOG(string) std::cout << string << std::endl;
 
-/* 全局变量 */
+/* global variable */
 struct {
 	tinygltf::Model model;
 	std::string err;
@@ -34,15 +38,37 @@ struct AttributeDesc {
 	int8_t attCmpCount;
 };
 
+/* helper functions */
 /* 输入一个图元类型返回该图元涉及的属性类型 */
 std::vector<AttributeDesc> GenerateAttributeDescByPrimitive(const tinygltf::Primitive&);
 
-GE_STATE Encoder::EncodeFromAsciiMemory(const std::string& jData) const {
+inline GE_STATE loadModel(const std::string&); /* load model data from json data */
+inline GE_STATE makeMesh(); /* make a Mesh object compatible with draco */
+inline GE_STATE compressMesh(std::unique_ptr< std::vector<int8_t> >&); /* compress mesh maked by previous function */
+
+#ifdef TEST_COMPRESS
+struct {
+	std::unique_ptr< draco::Mesh > meshPtr;
+} T_GVAR;
+inline GE_STATE decompressMesh(
+	const int8_t* data,
+	size_t size,
+	std::unique_ptr< draco::Mesh >& out); /* TEST: test if compress is complete */
+#endif /* TEST_COMPRESS */
+
+GE_STATE Encoder::EncodeFromAsciiMemory(const std::string& jData) {
 	GE_STATE state = GES_OK;
 	state = loadModel(jData);
 	if (state != GES_OK) return state;
 	state = makeMesh();
 	if (state != GES_OK) return state;
+	state = compressMesh(m_outBuffer);
+	if (state != GES_OK) return state;
+
+#ifdef TEST_COMPRESS
+	state = decompressMesh(&(*m_outBuffer)[0], (*m_outBuffer).size(), T_GVAR.meshPtr);
+	if (state != GES_OK) return state;
+#endif /* TEST_COMPRESS */
 	return state;
 }
 
@@ -50,16 +76,13 @@ std::string Encoder::GetErrorMsg() const { return GVAR.err; }
 std::string Encoder::GetWarnMsg() const { return GVAR.warn; }
 
 /* private helper functions */
-GE_STATE Encoder::loadModel(const std::string& jData) const {
+GE_STATE loadModel(const std::string& jData) {
 	std::string base_dir;
 	tinygltf::TinyGLTF loader;
 	GE_STATE state;
 	bool ret = loader.LoadASCIIFromString(&GVAR.model, &GVAR.err, &GVAR.warn, jData.c_str(), jData.size(), base_dir);
 	state = ret ? GES_OK : GES_ERR;
-	if (state != GES_OK) {
-		MCOUT(GVAR.err);
-		return state;
-	}
+	if (state != GES_OK)	return state;
 	/* TODO: check model's data */
 	/* 1. number of meshes */
 	/* 2. primitive type -- what type of primitive should i support */
@@ -70,7 +93,7 @@ GE_STATE Encoder::loadModel(const std::string& jData) const {
 	}
 	
 	for (const tinygltf::Mesh& meshIter : GVAR.model.meshes) {
-		MCOUT("name: " << meshIter.name);
+		MLOG("name: " << meshIter.name);
 		for (const tinygltf::Primitive& primitiveIter : meshIter.primitives) {
 			if (primitiveIter.mode != TINYGLTF_MODE_TRIANGLES) {
 				GVAR.err = "Only support triangle currently!";
@@ -78,13 +101,10 @@ GE_STATE Encoder::loadModel(const std::string& jData) const {
 			}
 		}
 	}
-
-	if (state != GES_OK)
-		MCOUT(GVAR.err);
 	return state;
 }
 
-GE_STATE Encoder::makeMesh() const {
+GE_STATE makeMesh()  {
 	/* TODO: need to load all the meshes in the model file! */
 	/* just load the first mesh currently */
 	int indexAccessorID  = GVAR.model.meshes[0].primitives[0].indices;
@@ -119,6 +139,41 @@ GE_STATE Encoder::makeMesh() const {
 	GVAR.mesh = meshBuilder.Finalize();
 	return GES_OK;
 }
+
+GE_STATE compressMesh(std::unique_ptr< std::vector<int8_t> >& ptr) {
+	draco::Encoder edr;
+	draco::EncoderBuffer eBuf;
+	draco::Status status;
+	status = edr.EncodeMeshToBuffer(*GVAR.mesh, &eBuf);
+	if (!status.ok()) {
+		GVAR.err = status.error_msg_string();
+		return GES_ERR;
+	}
+	ptr = std::make_unique< std::vector<int8_t> >();
+	size_t bufSize = eBuf.size();
+	(*ptr).resize(bufSize);
+	memcpy_s(&(*ptr)[0], bufSize, eBuf.data(), bufSize);
+	return GES_OK;
+}
+
+#ifdef TEST_COMPRESS
+inline GE_STATE decompressMesh(
+	const int8_t* data,
+	size_t size,
+	std::unique_ptr< draco::Mesh >& out ) {
+	draco::Decoder ddr;
+	draco::DecoderBuffer deBuf;
+	deBuf.Init(reinterpret_cast<const char*>(data), size);
+	draco::StatusOr< std::unique_ptr< draco::Mesh > > status = ddr.DecodeMeshFromBuffer(&deBuf);
+	if (!status.ok()) {
+		GVAR.err = status.status().error_msg_string();
+		return GES_ERR;
+	}
+	/* TODO: how to initialize the 'out' */
+	/* out = std::make_unique<draco::Mesh>((*status.value())); */
+	return GES_OK;
+}
+#endif /* TEST_COMPRESS */
 
 /* local helper functions */
 std::vector<AttributeDesc> GenerateAttributeDescByPrimitive(const tinygltf::Primitive& pri) {
@@ -170,13 +225,13 @@ std::vector<AttributeDesc> GenerateAttributeDescByPrimitive(const tinygltf::Prim
 				break;
 			default:
 				/* TODO: warnning! may need some method to handle */
-				MCOUT("doesn't support such type" << cmpType);
+				MLOG("doesn't support such type" << cmpType);
 				break;
 			}
 		}
 		else {
 			/* TODO: need to support more type of attributes */
-			MCOUT("doesn't support " << iter.first);
+			MLOG("doesn't support " << iter.first);
 		}
 		if (attDesc.attCmpCount != 0) res.push_back(attDesc);
 	}

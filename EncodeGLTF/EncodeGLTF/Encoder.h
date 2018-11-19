@@ -1,6 +1,8 @@
 ﻿#ifndef ENCODER_H
 #define ENCODER_H
 #include <string>
+#include <memory>
+#include <vector>
 
 namespace GLTF_ENCODER {
 	enum GE_STATE {
@@ -10,13 +12,15 @@ namespace GLTF_ENCODER {
 
 	class Encoder {
 	public:
-		GE_STATE EncodeFromAsciiMemory(const std::string&) const;
+		GE_STATE EncodeFromAsciiMemory(const std::string&);
 		std::string GetErrorMsg() const;
 		std::string GetWarnMsg() const;
+		/* !WARNING! */
+		/* m_outbuffer won't have NO ownership of the vector(or the buffer)*/
+		std::unique_ptr< std::vector<int8_t> > Buffer();
 	private:
-		/* helper functions */
-		GE_STATE loadModel(const std::string&) const; /* load model data from json data */
-		GE_STATE makeMesh() const; /* make a Mesh object compatible with draco */
+		/* encoded result */
+		std::unique_ptr< std::vector<int8_t> > m_outBuffer;
 	};
 }
 #endif /* !ENCODER_H */
