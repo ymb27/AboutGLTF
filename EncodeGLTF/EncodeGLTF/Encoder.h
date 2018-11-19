@@ -14,9 +14,9 @@ namespace GLTF_ENCODER {
 		std::string GetErrorMsg() const;
 		std::string GetWarnMsg() const;
 	private:
-		// helper functions
-		GE_STATE loadModel(const std::string&) const; // load model data from json data
-		GE_STATE makeMesh() const; // make a Mesh object compatible with draco
+		/* helper functions */
+		GE_STATE loadModel(const std::string&) const; /* load model data from json data */
+		GE_STATE makeMesh() const; /* make a Mesh object compatible with draco */
 	};
 }
-#endif // !ENCODER_H
+#endif /* !ENCODER_H */

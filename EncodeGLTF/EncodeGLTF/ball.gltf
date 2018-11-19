@@ -1,0 +1,148 @@
+{
+    "accessors" : [
+        {
+            "bufferView" : 0,
+            "componentType" : 5123,
+            "count" : 32400,
+            "max" : [
+                6069
+            ],
+            "min" : [
+                0
+            ],
+            "type" : "SCALAR"
+        },
+        {
+            "bufferView" : 1,
+            "componentType" : 5126,
+            "count" : 6070,
+            "max" : [
+                1.1456794738769531,
+                0.7237425446510315,
+                1.0757139921188354
+            ],
+            "min" : [
+                -1.1456786394119263,
+                -1.517439842224121,
+                -0.9476171731948853
+            ],
+            "type" : "VEC3"
+        },
+        {
+            "bufferView" : 2,
+            "componentType" : 5126,
+            "count" : 6070,
+            "max" : [
+                1.0,
+                0.9988402724266052,
+                1.0
+            ],
+            "min" : [
+                -1.0,
+                -0.999969482421875,
+                -1.0
+            ],
+            "type" : "VEC3"
+        },
+        {
+            "bufferView" : 3,
+            "componentType" : 5126,
+            "count" : 6070,
+            "max" : [
+                0.9999850392341614,
+                0.9999850283502383
+            ],
+            "min" : [
+                1.4971649761719164e-05,
+                0.011934399604797363
+            ],
+            "type" : "VEC2"
+        }
+    ],
+    "asset" : {
+        "generator" : "Khronos Blender glTF 2.0 exporter",
+        "version" : "2.0"
+    },
+    "bufferViews" : [
+        {
+            "buffer" : 0,
+            "byteLength" : 64800,
+            "byteOffset" : 0,
+            "target" : 34963
+        },
+        {
+            "buffer" : 0,
+            "byteLength" : 72840,
+            "byteOffset" : 64800,
+            "target" : 34962
+        },
+        {
+            "buffer" : 0,
+            "byteLength" : 72840,
+            "byteOffset" : 137640,
+            "target" : 34962
+        },
+        {
+            "buffer" : 0,
+            "byteLength" : 48560,
+            "byteOffset" : 210480,
+            "target" : 34962
+        }
+    ],
+    "buffers" : [
+        {
+            "byteLength" : 259040,
+            "uri" : "ball.bin"
+        }
+    ],
+    "meshes" : [
+        {
+            "name" : "Sphere",
+            "primitives" : [
+                {
+                    "attributes" : {
+                        "NORMAL" : 2,
+                        "POSITION" : 1,
+                        "TEXCOORD_0" : 3
+                    },
+                    "indices" : 0
+                }
+            ]
+        }
+    ],
+    "nodes" : [
+        {
+            "name" : "Hemi",
+            "rotation" : [
+                0.5070624947547913,
+                -3.8388290899115784e-24,
+                -1.1259047808523858e-16,
+                0.8619092702865601
+            ],
+            "translation" : [
+                -4.069756407029478e-16,
+                1.3325821161270142,
+                2.6893296241760254
+            ]
+        },
+        {
+            "mesh" : 0,
+            "name" : "Sphere",
+            "translation" : [
+                0.0,
+                1.370630145072937,
+                -0.0
+            ]
+        }
+    ],
+    "scene" : 0,
+    "scenes" : [
+        {
+            "name" : "Scene",
+            "nodes" : [
+                0,
+                1
+            ]
+        }
+    ]
+}

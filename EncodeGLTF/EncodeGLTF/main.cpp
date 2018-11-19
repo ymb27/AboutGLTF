@@ -2,7 +2,7 @@
 #include "Helper.h"
 #include <iostream>
 
-const char* FILE_PATH = "../../sample.gltf";
+const char* FILE_PATH = "./ball.gltf";
 
 int main() {
 	GLTF_ENCODER::Encoder ec;
