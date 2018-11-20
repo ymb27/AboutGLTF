@@ -23,7 +23,6 @@ struct {
 	tinygltf::Model model;
 	std::string err;
 	std::string warn;
-
 	unique_ptr<draco::Mesh> mesh;
 } GVAR;
 
@@ -54,6 +53,7 @@ inline GE_STATE decompressMesh(
 	const int8_t* data,
 	size_t size,
 	std::unique_ptr< draco::Mesh >& out); /* TEST: test if compress is complete */
+inline GE_STATE analyseDecompressMesh();
 #endif /* TEST_COMPRESS */
 
 GE_STATE Encoder::EncodeFromAsciiMemory(const std::string& jData) {
@@ -68,6 +68,7 @@ GE_STATE Encoder::EncodeFromAsciiMemory(const std::string& jData) {
 #ifdef TEST_COMPRESS
 	state = decompressMesh(&(*m_outBuffer)[0], (*m_outBuffer).size(), T_GVAR.meshPtr);
 	if (state != GES_OK) return state;
+	state = analyseDecompressMesh();
 #endif /* TEST_COMPRESS */
 	return state;
 }
@@ -153,6 +154,7 @@ GE_STATE compressMesh(std::unique_ptr< std::vector<int8_t> >& ptr) {
 	size_t bufSize = eBuf.size();
 	(*ptr).resize(bufSize);
 	memcpy_s(&(*ptr)[0], bufSize, eBuf.data(), bufSize);
+	MLOG(bufSize);
 	return GES_OK;
 }
 
@@ -164,13 +166,24 @@ inline GE_STATE decompressMesh(
 	draco::Decoder ddr;
 	draco::DecoderBuffer deBuf;
 	deBuf.Init(reinterpret_cast<const char*>(data), size);
-	draco::StatusOr< std::unique_ptr< draco::Mesh > > status = ddr.DecodeMeshFromBuffer(&deBuf);
-	if (!status.ok()) {
-		GVAR.err = status.status().error_msg_string();
+	draco::StatusOr< std::unique_ptr<draco::Mesh> >&& rStatus
+		= ddr.DecodeMeshFromBuffer(&deBuf);
+	if (!rStatus.ok()) {
+		GVAR.err = rStatus.status().error_msg_string();
 		return GES_ERR;
 	}
-	/* TODO: how to initialize the 'out' */
-	/* out = std::make_unique<draco::Mesh>((*status.value())); */
+	out = std::move(rStatus).value();
+	return GES_OK;
+}
+
+inline GE_STATE analyseDecompressMesh() {
+	/* TODO validate the compress result by decompress it and recreate a gltf file */
+	const draco::PointAttribute* ptr_position = (*T_GVAR.meshPtr).GetNamedAttribute(draco::GeometryAttribute::POSITION);
+	const draco::PointAttribute* ptr_normal = (*T_GVAR.meshPtr).GetNamedAttribute(draco::GeometryAttribute::NORMAL);
+	const size_t numOfPoints = (*T_GVAR.meshPtr).num_points();
+	
+	tinygltf::Model outModel;
+	tinygltf::Buffer buf;
 	return GES_OK;
 }
 #endif /* TEST_COMPRESS */
