@@ -16,7 +16,7 @@ using std::unique_ptr;
 using namespace GLTF_ENCODER;
 
 #define TEST_COMPRESS
-#define MLOG(string) std::cout << string << std::endl;
+#define MLOG(string) std::cout << string << std::endl
 
 /* global variable */
 struct {
@@ -126,8 +126,7 @@ GE_STATE makeMesh()  {
 			iter.attGeoType, iter.attCmpCount,
 			iter.attDataType);
 
-		draco::FaceIndex curFaceID;
-		for (curFaceID = 0; curFaceID < numOfFaces; ++curFaceID) {
+		for (draco::FaceIndex curFaceID(0); curFaceID < numOfFaces; ++curFaceID) {
 			INDEX_TYPE c1 = *(indexData + curFaceID.value() * 3 + 0);
 			INDEX_TYPE c2 = *(indexData + curFaceID.value() * 3 + 1);
 			INDEX_TYPE c3 = *(indexData + curFaceID.value() * 3 + 2);
@@ -176,14 +175,26 @@ inline GE_STATE decompressMesh(
 	return GES_OK;
 }
 
+/* TODO validate the compress result by decompress it and recreate a gltf file */
 inline GE_STATE analyseDecompressMesh() {
-	/* TODO validate the compress result by decompress it and recreate a gltf file */
-	const draco::PointAttribute* ptr_position = (*T_GVAR.meshPtr).GetNamedAttribute(draco::GeometryAttribute::POSITION);
-	const draco::PointAttribute* ptr_normal = (*T_GVAR.meshPtr).GetNamedAttribute(draco::GeometryAttribute::NORMAL);
-	const size_t numOfPoints = (*T_GVAR.meshPtr).num_points();
-	
+	draco::Mesh& mesh = (*T_GVAR.meshPtr);
+	const draco::PointAttribute* ptr_position = mesh.GetNamedAttribute(draco::GeometryAttribute::POSITION);
+	const draco::PointAttribute* ptr_normal = mesh.GetNamedAttribute(draco::GeometryAttribute::NORMAL);
+	const draco::PointAttribute* ptr_texcoord0 = mesh.GetNamedAttribute(draco::GeometryAttribute::TEX_COORD);
+	const size_t numOfPoints = mesh.num_points();
+	const size_t numOfFaces = mesh.num_faces();
+
+	draco::PointIndex pid(6069);
+	draco::AttributeValueIndex avi = ptr_position->mapped_index(pid);
+
+
 	tinygltf::Model outModel;
 	tinygltf::Buffer buf;
+	tinygltf::TinyGLTF writer;
+
+	/* TODO: consider there will be many meshes */
+	/* you need to build model mannually */
+
 	return GES_OK;
 }
 #endif /* TEST_COMPRESS */
