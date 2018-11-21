@@ -39,10 +39,11 @@ struct AttributeDesc {
 
 /* helper functions */
 /* 输入一个图元类型返回该图元涉及的属性类型 */
-std::vector<AttributeDesc> GenerateAttributeDescByPrimitive(const tinygltf::Primitive&);
+inline std::vector<AttributeDesc> GenerateAttributeDescByPrimitive(const tinygltf::Primitive&);
 
 inline GE_STATE loadModel(const std::string&); /* load model data from json data */
 inline GE_STATE makeMesh(); /* make a Mesh object compatible with draco */
+inline GE_STATE makePointClouds(); /* make pointclouds based on meshes */
 inline GE_STATE compressMesh(std::unique_ptr< std::vector<int8_t> >&); /* compress mesh maked by previous function */
 
 #ifdef TEST_COMPRESS
@@ -84,23 +85,11 @@ GE_STATE loadModel(const std::string& jData) {
 	bool ret = loader.LoadASCIIFromString(&GVAR.model, &GVAR.err, &GVAR.warn, jData.c_str(), jData.size(), base_dir);
 	state = ret ? GES_OK : GES_ERR;
 	if (state != GES_OK)	return state;
-	/* TODO: check model's data */
-	/* 1. number of meshes */
-	/* 2. primitive type -- what type of primitive should i support */
+	/* It's invalid to compress a gltf file without any meshes */
 	size_t numOfMesh = GVAR.model.meshes.size();
 	if (numOfMesh <= 0) {
 		GVAR.err = "No Mesh!";
 		state = GES_ERR;
-	}
-	
-	for (const tinygltf::Mesh& meshIter : GVAR.model.meshes) {
-		MLOG("name: " << meshIter.name);
-		for (const tinygltf::Primitive& primitiveIter : meshIter.primitives) {
-			if (primitiveIter.mode != TINYGLTF_MODE_TRIANGLES) {
-				GVAR.err = "Only support triangle currently!";
-				state = GES_ERR;
-			}
-		}
 	}
 	return state;
 }
@@ -119,7 +108,7 @@ GE_STATE makeMesh()  {
 	draco::TriangleSoupMeshBuilder meshBuilder;
 	meshBuilder.Start(numOfFaces);
 
-	/* TODO: I don't know if there are two triangle primitives */
+	/* proccess for triangle primitive */
 	std::vector<AttributeDesc> attDesc = GenerateAttributeDescByPrimitive(GVAR.model.meshes[0].primitives[0]);
 	for (AttributeDesc& iter : attDesc) {
 		int attID = meshBuilder.AddAttribute(
@@ -137,6 +126,7 @@ GE_STATE makeMesh()  {
 		}
 	}
 	GVAR.mesh = meshBuilder.Finalize();
+
 	return GES_OK;
 }
 
@@ -172,6 +162,7 @@ inline GE_STATE decompressMesh(
 		return GES_ERR;
 	}
 	out = std::move(rStatus).value();
+	MLOG(out->attribute(draco::GeometryAttribute::POSITION)->buffer()->data_size());
 	return GES_OK;
 }
 
@@ -219,17 +210,18 @@ std::vector<AttributeDesc> GenerateAttributeDescByPrimitive(const tinygltf::Prim
 			attDesc.attCmpCount = 3;
 			/* since gltf support float32array */
 			attDesc.attDataType = draco::DataType::DT_FLOAT32;
-			attDesc.attDataSize = 3 * 4;
+			attDesc.attDataSize = attDesc.attCmpCount * 4;
 
 		}
 		else if (iter.first.compare("NORMAL") == 0) {
 			attDesc.attGeoType = draco::GeometryAttribute::NORMAL;
 			attDesc.attCmpCount = 3;
 			attDesc.attDataType = draco::DataType::DT_FLOAT32;
-			attDesc.attDataSize = 3 * 4;
+			attDesc.attDataSize = attDesc.attCmpCount * 4;
 
 		}
-		else if (iter.first.compare("TEXCOORD_0") == 0) {
+		else if (iter.first.compare("TEXCOORD_0") == 0 ||
+				iter.first.compare("TEXCOORD_1") == 0) {
 			attDesc.attGeoType = draco::GeometryAttribute::TEX_COORD;
 			attDesc.attCmpCount = 2;
 			int cmpType = GVAR.model.accessors[accessorID].componentType;
@@ -237,15 +229,15 @@ std::vector<AttributeDesc> GenerateAttributeDescByPrimitive(const tinygltf::Prim
 			{
 			case TINYGLTF_COMPONENT_TYPE_FLOAT:
 				attDesc.attDataType = draco::DataType::DT_FLOAT32;
-				attDesc.attDataSize = 2 * 4;
+				attDesc.attDataSize = attDesc.attCmpCount * 4;
 				break;
 			case TINYGLTF_COMPONENT_TYPE_UNSIGNED_BYTE:
 				attDesc.attDataType = draco::DataType::DT_UINT8;
-				attDesc.attDataSize = 2 * 1;
+				attDesc.attDataSize = attDesc.attCmpCount * 1;
 				break;
 			case TINYGLTF_COMPONENT_TYPE_SHORT:
-				attDesc.attDataType = draco::DataType::DT_INT8;
-				attDesc.attDataSize = 2 * 1;
+				attDesc.attDataType = draco::DataType::DT_INT16;
+				attDesc.attDataSize = attDesc.attCmpCount * 2;
 				break;
 			default:
 				/* TODO: warnning! may need some method to handle */
@@ -253,8 +245,62 @@ std::vector<AttributeDesc> GenerateAttributeDescByPrimitive(const tinygltf::Prim
 				break;
 			}
 		}
+		else if (iter.first.compare("COLOR_0") == 0) {
+			attDesc.attGeoType = draco::GeometryAttribute::COLOR;
+			int cmpCount = GVAR.model.accessors[accessorID].type;
+			int cmpType = GVAR.model.accessors[accessorID].componentType;
+			if (cmpCount == TINYGLTF_TYPE_VEC3) {
+				attDesc.attCmpCount = 3;
+				switch (cmpType) {
+				case TINYGLTF_COMPONENT_TYPE_FLOAT:
+					attDesc.attDataType = draco::DataType::DT_FLOAT32;
+					attDesc.attDataSize = attDesc.attCmpCount * 4;
+					break;
+				case TINYGLTF_COMPONENT_TYPE_UNSIGNED_BYTE:
+					attDesc.attDataType = draco::DataType::DT_UINT8;
+					attDesc.attDataSize = attDesc.attCmpCount * 1;
+					break;
+				case TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT:
+					attDesc.attDataType = draco::DataType::DT_UINT16;
+					attDesc.attDataSize = attDesc.attCmpCount * 2;
+					break;
+				default:
+					/* TODO: need to handle invalid component type */
+					MLOG("invalid component type " << iter.first);
+					break;
+				}
+			}
+			else if (cmpCount == TINYGLTF_TYPE_VEC4) {
+				attDesc.attCmpCount = 4;
+				switch (cmpType)
+				{
+				case TINYGLTF_COMPONENT_TYPE_FLOAT:
+					attDesc.attDataType = draco::DataType::DT_FLOAT32;
+					attDesc.attDataSize = attDesc.attCmpCount * 4;
+					break;
+				case TINYGLTF_COMPONENT_TYPE_UNSIGNED_BYTE:
+					attDesc.attDataType = draco::DataType::DT_UINT8;
+					attDesc.attDataSize = attDesc.attCmpCount * 1;
+					break;
+				case TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT:
+					attDesc.attDataType = draco::DataType::DT_UINT16;
+					attDesc.attDataSize = attDesc.attCmpCount * 2;
+					break;
+				default:
+					/* TODO: need to handle invalid component type */
+					MLOG("invalid component type " << iter.first);
+					break;
+				}
+			}
+			else {
+				/* TODO: need to handle invalid component count */
+				MLOG("invalid component count " << iter.first);
+			}
+		}
+		/* TODO: Currently don't consider animation */
+		/* So ignore JOINTS_0 and WEIGHTS_0 */
 		else {
-			/* TODO: need to support more type of attributes */
+			/* TODO: invalid primitive.attriute type */
 			MLOG("doesn't support " << iter.first);
 		}
 		if (attDesc.attCmpCount != 0) res.push_back(attDesc);
