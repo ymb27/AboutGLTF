@@ -43,7 +43,7 @@ inline std::vector<AttributeDesc> GenerateAttributeDescByPrimitive(const tinyglt
 
 inline GE_STATE loadModel(const std::string&); /* load model data from json data */
 inline GE_STATE makeMesh(); /* make a Mesh object compatible with draco */
-inline GE_STATE makePointClouds(); /* make pointclouds based on meshes */
+inline GE_STATE makeMesh2(); /* make a Mesh object compatible with draco ver 2.0 */
 inline GE_STATE compressMesh(std::unique_ptr< std::vector<int8_t> >&); /* compress mesh maked by previous function */
 
 #ifdef TEST_COMPRESS
@@ -126,8 +126,35 @@ GE_STATE makeMesh()  {
 		}
 	}
 	GVAR.mesh = meshBuilder.Finalize();
-
+	MLOG(GVAR.mesh->attribute(draco::GeometryAttribute::POSITION)->buffer()->data_size());
 	return GES_OK;
+}
+
+GE_STATE makeMesh2() {
+	/* TODO: need to load all the meshes in the model file! */
+	/* just load the first mesh currently */
+	int indexAccessorID = GVAR.model.meshes[0].primitives[0].indices;
+	size_t numOfFaces = GVAR.model.accessors[indexAccessorID].count / 3;
+	int bufferView = GVAR.model.accessors[indexAccessorID].bufferView;
+	int buffer = GVAR.model.bufferViews[bufferView].buffer;
+	int byteOffset = GVAR.model.bufferViews[bufferView].byteOffset;
+	/* here assume index's type is unsigned short, which size is 2 byte */
+	using INDEX_TYPE = uint16_t;
+	INDEX_TYPE* indexData = reinterpret_cast<INDEX_TYPE*>((&GVAR.model.buffers[buffer].data[0]) + byteOffset);
+	GVAR.mesh = std::make_unique<draco::Mesh>();
+	draco::Mesh& mh = (*GVAR.mesh);
+
+	mh.SetNumFaces(numOfFaces);
+	for (draco::FaceIndex fid(0); fid < numOfFaces; ++fid) {
+		draco::Mesh::Face tFace;
+		tFace[0] = draco::PointIndex(*(indexData + fid.value() * 3 + 0));
+		tFace[1] = draco::PointIndex(*(indexData + fid.value() * 3 + 1));
+		tFace[2] = draco::PointIndex(*(indexData + fid.value() * 3 + 2));
+		mh.SetFace(fid, tFace);
+	}
+
+	std::unique_ptr<draco::PointAttribute> pos = std::make_unique<draco::PointAttribute>();
+	
 }
 
 GE_STATE compressMesh(std::unique_ptr< std::vector<int8_t> >& ptr) {
