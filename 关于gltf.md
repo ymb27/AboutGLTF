@@ -38,9 +38,10 @@ gltf文档中可以包含多个节点，节点的类型由其包含的属性决�
 
 除了以上属性外，gltf中还包含了诸如动画，材质等属性供应用进行解析。
 
-### Ref
+### 内存布局的问题
 
-1. [gltf入门教程](https://github.com/KhronosGroup/glTF-Tutorials/blob/master/gltfTutorial/README.md)
+* `accessor.byteOffset`必须是`accessor.componentType`的倍数
+* `accessor.byteOffset` + Accessor关联的`bufferView.byteOffset`必须是`accessor.componentType`的倍数
 
 ## 什么是glb
 
@@ -69,3 +70,4 @@ chunk的格式较为统一，length说明该chunk的大小，单位字节；type
 ---
 
 1. [gltf文件规约](https://github.com/KhronosGroup/glTF/tree/master/specification/2.0)
+2. [gltf入门教程](https://github.com/KhronosGroup/glTF-Tutorials/blob/master/gltfTutorial/README.md)

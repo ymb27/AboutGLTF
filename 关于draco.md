@@ -9,6 +9,20 @@ draco的源码编写中，类的成员变量基本都是私有的，有两种方
 1. 利用Get/Set函数
 2. 提供const函数，返回成员变量的常引用
 
+## 关键词汇
+
+### Point/Corner
+
+​	![Point and corner](./Diagrams-Point_Corner.jpg)
+
+​	区分这个的意义在于：避免可能的冗余信息。
+
+​	比如说位置信息，六个corner都有相同的位置信息，那么可以将这个位置信息存放到一个point上，建立corner到point之间的映射，当需要查询一个corner的位置信息时，通过映射关系就可以找到对应的point，进而获得point上的位置信息
+
+​	再比如纹理信息，往往每个corner上的纹理信息都不相同（即便它们位置相同），此时纹理信息就可以直接绑定在corner上。
+
+​	在构建Mesh的过程中，往往会出现同一个位置上的多个顶点，位置信息相同但纹理/法线信息不同。此时我们在安排顶点属性的时候，就会特别声明将这个属性按照point方式来存储，抑或是按照corner方式存储
+
 ## API使用方法
 
 ### 压缩
@@ -64,3 +78,19 @@ Status EncodeMeshToBuffer(const Mesh &m, EncoderBuffer *out_buffer);
 #### Mesh
 
 ​	利用**triangle_soup_mesh_builder**可以简洁地创建mesh
+
+​	一个mesh关心两个数据，一个是PointAttribute，一个是Face。
+
+#### PointAttribute
+
+​	点属性的描述器，属性实际值存放于Attribute_buffer中，属性包括了position, normal, texcoord。其继承自GeometryAttribute，继承了缓冲区描述变量，包括byte_offset, byte_stride等。
+
+​	每个点都有自己的ID,但也不排除不同的点会有相同的属性数据。这个描述器可以将属性值相同的数据进行合并，仅保留一份副本存放在内存中。另外又有一个index_map属性，用于存放点ID与属性位置之间的映射。
+
+​	比如说A点和B点的属性数据相同，其属性值位于内存的X地址处，那么index_map[A]和index_map[B]都会存放X。
+
+​	在不考虑消除重复属性值的情况下，还可以设置IdentityMapping和ExplicitMapping设置index_map的值。其中identityMapping相当于一一对应的关系，即一个点ID对应一个数据存储位置；而ExplicitMapping意味着手动设置内存位置对应关系，需要提供index_map的相关设置方法。	
+
+#### Face
+
+​	定义于Mesh类中，其实就是一个3元数组，元素为PointIndex。可以理解为存储索引的位置，存储的PointIndex可以通过PointAttribute索引出面上某个顶点的某个属性值。

@@ -1,6 +1,7 @@
 ﻿#include <draco/mesh/triangle_soup_mesh_builder.h>
 #include <draco/compression/encode.h>
 #include <draco/compression/decode.h>
+//#undef DRACO_ATTRIBUTE_DEDUPLICATION_SUPPORTED
 
 #define TINYGLTF_IMPLEMENTATION
 #define STB_IMAGE_IMPLEMENTATION
@@ -16,7 +17,36 @@ using std::unique_ptr;
 using namespace GLTF_ENCODER;
 
 #define TEST_COMPRESS
-#define MLOG(string) std::cout << string << std::endl
+
+#ifdef TEST_COMPRESS
+template<typename T>
+inline void Test_Log(T t) {
+	std::cout << t << std::endl;
+}
+template<typename T, typename ... Args>
+inline void Test_Log(T t, Args... args) {
+	std::cout << t << ' ';
+	Test_Log(args...);
+}
+
+struct {
+	std::unique_ptr< draco::Mesh > meshPtr;
+} T_GVAR;
+inline GE_STATE decompressMesh(
+	const int8_t* data,
+	size_t size,
+	std::unique_ptr< draco::Mesh >& out); /* TEST: test if compress is complete */
+inline GE_STATE analyseDecompressMesh();
+#endif /* TEST_COMPRESS */
+
+#ifdef TEST_COMPRESS
+#define MLOG(...) Test_Log(__VA_ARGS__ )
+#else
+#define MLOG(...)
+#endif /* TEST_COMPRESS */
+
+
+#define ARR3(name) name##[0], name##[1], name##[2]
 
 /* global variable */
 struct {
@@ -46,22 +76,12 @@ inline GE_STATE makeMesh(); /* make a Mesh object compatible with draco */
 inline GE_STATE makeMesh2(); /* make a Mesh object compatible with draco ver 2.0 */
 inline GE_STATE compressMesh(std::unique_ptr< std::vector<int8_t> >&); /* compress mesh maked by previous function */
 
-#ifdef TEST_COMPRESS
-struct {
-	std::unique_ptr< draco::Mesh > meshPtr;
-} T_GVAR;
-inline GE_STATE decompressMesh(
-	const int8_t* data,
-	size_t size,
-	std::unique_ptr< draco::Mesh >& out); /* TEST: test if compress is complete */
-inline GE_STATE analyseDecompressMesh();
-#endif /* TEST_COMPRESS */
-
 GE_STATE Encoder::EncodeFromAsciiMemory(const std::string& jData) {
 	GE_STATE state = GES_OK;
 	state = loadModel(jData);
 	if (state != GES_OK) return state;
-	state = makeMesh();
+	//state = makeMesh();
+	state = makeMesh2();
 	if (state != GES_OK) return state;
 	state = compressMesh(m_outBuffer);
 	if (state != GES_OK) return state;
@@ -126,7 +146,6 @@ GE_STATE makeMesh()  {
 		}
 	}
 	GVAR.mesh = meshBuilder.Finalize();
-	MLOG(GVAR.mesh->attribute(draco::GeometryAttribute::POSITION)->buffer()->data_size());
 	return GES_OK;
 }
 
@@ -141,26 +160,57 @@ GE_STATE makeMesh2() {
 	/* here assume index's type is unsigned short, which size is 2 byte */
 	using INDEX_TYPE = uint16_t;
 	INDEX_TYPE* indexData = reinterpret_cast<INDEX_TYPE*>((&GVAR.model.buffers[buffer].data[0]) + byteOffset);
-	GVAR.mesh = std::make_unique<draco::Mesh>();
-	draco::Mesh& mh = (*GVAR.mesh);
 
-	mh.SetNumFaces(numOfFaces);
+	GVAR.mesh = std::make_unique<draco::Mesh>();
+	draco::Mesh& m = (*GVAR.mesh);
+	m.SetNumFaces(numOfFaces);
+
+	size_t numOfPoints = 6070;
+	m.set_num_points(numOfPoints);
+
 	for (draco::FaceIndex fid(0); fid < numOfFaces; ++fid) {
-		draco::Mesh::Face tFace;
-		tFace[0] = draco::PointIndex(*(indexData + fid.value() * 3 + 0));
-		tFace[1] = draco::PointIndex(*(indexData + fid.value() * 3 + 1));
-		tFace[2] = draco::PointIndex(*(indexData + fid.value() * 3 + 2));
-		mh.SetFace(fid, tFace);
+		draco::Mesh::Face face;
+		face[0] = draco::PointIndex(*(indexData + fid.value() * 3 + 0));
+		face[1] = draco::PointIndex(*(indexData + fid.value() * 3 + 1));
+		face[2] = draco::PointIndex(*(indexData + fid.value() * 3 + 2));
+		m.SetFace(fid, face);
 	}
 
-	std::unique_ptr<draco::PointAttribute> pos = std::make_unique<draco::PointAttribute>();
+	draco::GeometryAttribute pos;
+	pos.Init(draco::GeometryAttribute::POSITION, nullptr, 3, draco::DataType::DT_FLOAT32, false, 0, 0);
+
+	draco::GeometryAttribute nor;
+	nor.Init(draco::GeometryAttribute::NORMAL, nullptr, 3, draco::DataType::DT_FLOAT32, false, 0, 0);
+
+	draco::GeometryAttribute tex;
+	tex.Init(draco::GeometryAttribute::TEX_COORD, nullptr, 2, draco::DataType::DT_FLOAT32, false,0, 0);
 	
+	int posID = m.AddAttribute(pos, true, numOfPoints);
+	int norID = m.AddAttribute(nor, true, numOfPoints);
+	int texID = m.AddAttribute(tex, true, numOfPoints);
+
+	uint8_t* data = &GVAR.model.buffers[0].data[0];
+	m.attribute(posID)->buffer()->Write(0, data + 64800, 72840);
+	m.attribute(norID)->buffer()->Write(0, data + 137640, 72840);
+	m.attribute(texID)->buffer()->Write(0, data + 210480, 48560);
+
+	m.SetAttributeElementType(posID, draco::MeshAttributeElementType::MESH_VERTEX_ATTRIBUTE);
+	m.SetAttributeElementType(norID, draco::MeshAttributeElementType::MESH_VERTEX_ATTRIBUTE);
+	m.SetAttributeElementType(texID, draco::MeshAttributeElementType::MESH_VERTEX_ATTRIBUTE);
+	
+	for (draco::FaceIndex i(0); i < 3; ++i) {
+		draco::Mesh::Face face = m.face(i);
+		MLOG(ARR3(face));
+	}
+
+	return GES_OK;
 }
 
 GE_STATE compressMesh(std::unique_ptr< std::vector<int8_t> >& ptr) {
 	draco::Encoder edr;
 	draco::EncoderBuffer eBuf;
 	draco::Status status;
+	edr.SetSpeedOptions(0, 1);
 	status = edr.EncodeMeshToBuffer(*GVAR.mesh, &eBuf);
 	if (!status.ok()) {
 		GVAR.err = status.error_msg_string();
@@ -170,7 +220,7 @@ GE_STATE compressMesh(std::unique_ptr< std::vector<int8_t> >& ptr) {
 	size_t bufSize = eBuf.size();
 	(*ptr).resize(bufSize);
 	memcpy_s(&(*ptr)[0], bufSize, eBuf.data(), bufSize);
-	MLOG(bufSize);
+	MLOG("compressed size ", bufSize);
 	return GES_OK;
 }
 
@@ -189,7 +239,6 @@ inline GE_STATE decompressMesh(
 		return GES_ERR;
 	}
 	out = std::move(rStatus).value();
-	MLOG(out->attribute(draco::GeometryAttribute::POSITION)->buffer()->data_size());
 	return GES_OK;
 }
 
@@ -202,9 +251,10 @@ inline GE_STATE analyseDecompressMesh() {
 	const size_t numOfPoints = mesh.num_points();
 	const size_t numOfFaces = mesh.num_faces();
 
-	draco::PointIndex pid(6069);
-	draco::AttributeValueIndex avi = ptr_position->mapped_index(pid);
-
+	for (draco::FaceIndex i(0); i < 3; ++i) {
+		draco::Mesh::Face face = mesh.face(i);
+		MLOG(ARR3(face));
+	}
 
 	tinygltf::Model outModel;
 	tinygltf::Buffer buf;
@@ -268,7 +318,7 @@ std::vector<AttributeDesc> GenerateAttributeDescByPrimitive(const tinygltf::Prim
 				break;
 			default:
 				/* TODO: warnning! may need some method to handle */
-				MLOG("doesn't support such type" << cmpType);
+				MLOG("doesn't support such type" , cmpType);
 				break;
 			}
 		}
@@ -293,7 +343,7 @@ std::vector<AttributeDesc> GenerateAttributeDescByPrimitive(const tinygltf::Prim
 					break;
 				default:
 					/* TODO: need to handle invalid component type */
-					MLOG("invalid component type " << iter.first);
+					MLOG("invalid component type ", iter.first);
 					break;
 				}
 			}
@@ -315,20 +365,20 @@ std::vector<AttributeDesc> GenerateAttributeDescByPrimitive(const tinygltf::Prim
 					break;
 				default:
 					/* TODO: need to handle invalid component type */
-					MLOG("invalid component type " << iter.first);
+					MLOG("invalid component type ", iter.first);
 					break;
 				}
 			}
 			else {
 				/* TODO: need to handle invalid component count */
-				MLOG("invalid component count " << iter.first);
+				MLOG("invalid component count ", iter.first);
 			}
 		}
 		/* TODO: Currently don't consider animation */
 		/* So ignore JOINTS_0 and WEIGHTS_0 */
 		else {
 			/* TODO: invalid primitive.attriute type */
-			MLOG("doesn't support " << iter.first);
+			MLOG("doesn't support ", iter.first);
 		}
 		if (attDesc.attCmpCount != 0) res.push_back(attDesc);
 	}
