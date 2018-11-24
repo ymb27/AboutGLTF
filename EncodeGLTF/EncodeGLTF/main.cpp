@@ -1,7 +1,7 @@
 ﻿#include "Encoder.h"
 #include "Helper.h"
 #include <iostream>
-
+#include "Utility.h"
 const char* FILE_PATH = "./ball.gltf";
 
 int main() {

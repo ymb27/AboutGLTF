@@ -6,3 +6,5 @@
 /EncodeGLTF/3rdpart/draco/bin/*.exe
 /EncodeGLTF/3rdpart/draco/lib/*.lib
 /EncodeGLTF/3rdpart/zlib-1.2.11/lib/*.lib
+#中间生成的obj也不进行上传
+/EncodeGLTF/EncodeGLTF/*.obj

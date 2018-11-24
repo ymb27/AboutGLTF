@@ -1,7 +1,7 @@
 ﻿#include <draco/mesh/triangle_soup_mesh_builder.h>
 #include <draco/compression/encode.h>
 #include <draco/compression/decode.h>
-//#undef DRACO_ATTRIBUTE_DEDUPLICATION_SUPPORTED
+#undef DRACO_ATTRIBUTE_DEDUPLICATION_SUPPORTED
 
 #define TINYGLTF_IMPLEMENTATION
 #define STB_IMAGE_IMPLEMENTATION
@@ -19,6 +19,7 @@ using namespace GLTF_ENCODER;
 #define TEST_COMPRESS
 
 #ifdef TEST_COMPRESS
+#include "Utility.h"
 template<typename T>
 inline void Test_Log(T t) {
 	std::cout << t << std::endl;
@@ -37,12 +38,18 @@ inline GE_STATE decompressMesh(
 	size_t size,
 	std::unique_ptr< draco::Mesh >& out); /* TEST: test if compress is complete */
 inline GE_STATE analyseDecompressMesh();
+inline void checkDracoMeshIndexAndPos(draco::Mesh&, const char* outputName);
+inline void checkGLTFMeshIndexAndPos(tinygltf::Model&, tinygltf::Primitive&, const char* outputName);
 #endif /* TEST_COMPRESS */
 
 #ifdef TEST_COMPRESS
 #define MLOG(...) Test_Log(__VA_ARGS__ )
+#define CHECK_DRACO_MESH_INDEX_AND_POS(mesh, name) checkDracoMeshIndexAndPos(mesh, name)
+#define CHECK_GLTF_MESH_INDEX_AND_POS(model, mesh, name) checkGLTFMeshIndexAndPos(model, mesh, name)
 #else
 #define MLOG(...)
+#define CHECK_DRACO_MESH_INDEX_AND_POS(mesh, name)
+#define CHECK_GLTF_MESH_INDEX_AND_POS(mesh, name)
 #endif /* TEST_COMPRESS */
 
 
@@ -69,7 +76,7 @@ struct AttributeDesc {
 
 /* helper functions */
 /* 输入一个图元类型返回该图元涉及的属性类型 */
-inline std::vector<AttributeDesc> GenerateAttributeDescByPrimitive(const tinygltf::Primitive&);
+inline std::vector<AttributeDesc> generateAttributeDescByPrimitive(const tinygltf::Primitive&);
 
 inline GE_STATE loadModel(const std::string&); /* load model data from json data */
 inline GE_STATE makeMesh(); /* make a Mesh object compatible with draco */
@@ -111,6 +118,7 @@ GE_STATE loadModel(const std::string& jData) {
 		GVAR.err = "No Mesh!";
 		state = GES_ERR;
 	}
+	CHECK_GLTF_MESH_INDEX_AND_POS(GVAR.model, GVAR.model.meshes[0].primitives[0], "from gltf.obj");
 	return state;
 }
 
@@ -129,7 +137,7 @@ GE_STATE makeMesh()  {
 	meshBuilder.Start(numOfFaces);
 
 	/* proccess for triangle primitive */
-	std::vector<AttributeDesc> attDesc = GenerateAttributeDescByPrimitive(GVAR.model.meshes[0].primitives[0]);
+	std::vector<AttributeDesc> attDesc = generateAttributeDescByPrimitive(GVAR.model.meshes[0].primitives[0]);
 	for (AttributeDesc& iter : attDesc) {
 		int attID = meshBuilder.AddAttribute(
 			iter.attGeoType, iter.attCmpCount,
@@ -190,27 +198,26 @@ GE_STATE makeMesh2() {
 	int texID = m.AddAttribute(tex, true, numOfPoints);
 
 	uint8_t* data = &GVAR.model.buffers[0].data[0];
-	m.attribute(posID)->buffer()->Write(0, data + 64800, 72840);
+	data = data + 64800;
+	m.attribute(posID)->buffer()->Write(0, data, 72840);
 	m.attribute(norID)->buffer()->Write(0, data + 137640, 72840);
 	m.attribute(texID)->buffer()->Write(0, data + 210480, 48560);
 
 	m.SetAttributeElementType(posID, draco::MeshAttributeElementType::MESH_VERTEX_ATTRIBUTE);
 	m.SetAttributeElementType(norID, draco::MeshAttributeElementType::MESH_VERTEX_ATTRIBUTE);
 	m.SetAttributeElementType(texID, draco::MeshAttributeElementType::MESH_VERTEX_ATTRIBUTE);
-	
-	for (draco::FaceIndex i(0); i < 3; ++i) {
-		draco::Mesh::Face face = m.face(i);
-		MLOG(ARR3(face));
-	}
+
+	CHECK_DRACO_MESH_INDEX_AND_POS(m, "draco mesh.obj");
 
 	return GES_OK;
 }
 
 GE_STATE compressMesh(std::unique_ptr< std::vector<int8_t> >& ptr) {
 	draco::Encoder edr;
+	edr.SetTrackEncodedProperties(true);
 	draco::EncoderBuffer eBuf;
 	draco::Status status;
-	edr.SetSpeedOptions(0, 1);
+
 	status = edr.EncodeMeshToBuffer(*GVAR.mesh, &eBuf);
 	if (!status.ok()) {
 		GVAR.err = status.error_msg_string();
@@ -221,6 +228,8 @@ GE_STATE compressMesh(std::unique_ptr< std::vector<int8_t> >& ptr) {
 	(*ptr).resize(bufSize);
 	memcpy_s(&(*ptr)[0], bufSize, eBuf.data(), bufSize);
 	MLOG("compressed size ", bufSize);
+	MLOG("compressed points ", edr.num_encoded_points());
+	MLOG("compressed faces ", edr.num_encoded_faces());
 	return GES_OK;
 }
 
@@ -244,31 +253,105 @@ inline GE_STATE decompressMesh(
 
 /* TODO validate the compress result by decompress it and recreate a gltf file */
 inline GE_STATE analyseDecompressMesh() {
-	draco::Mesh& mesh = (*T_GVAR.meshPtr);
-	const draco::PointAttribute* ptr_position = mesh.GetNamedAttribute(draco::GeometryAttribute::POSITION);
-	const draco::PointAttribute* ptr_normal = mesh.GetNamedAttribute(draco::GeometryAttribute::NORMAL);
-	const draco::PointAttribute* ptr_texcoord0 = mesh.GetNamedAttribute(draco::GeometryAttribute::TEX_COORD);
-	const size_t numOfPoints = mesh.num_points();
-	const size_t numOfFaces = mesh.num_faces();
-
-	for (draco::FaceIndex i(0); i < 3; ++i) {
-		draco::Mesh::Face face = mesh.face(i);
-		MLOG(ARR3(face));
-	}
-
-	tinygltf::Model outModel;
-	tinygltf::Buffer buf;
-	tinygltf::TinyGLTF writer;
+	checkDracoMeshIndexAndPos(*T_GVAR.meshPtr, "uncompressed.obj");
 
 	/* TODO: consider there will be many meshes */
 	/* you need to build model mannually */
 
 	return GES_OK;
 }
+inline void checkDracoMeshIndexAndPos(draco::Mesh& mesh, const char* outputName) {
+	const draco::PointAttribute* pos = mesh.attribute(draco::GeometryAttribute::POSITION);
+	if (!pos) return;
+	const size_t numOfPoints = mesh.num_points();
+	const size_t numOfFaces = mesh.num_faces();
+
+	OBJHelper op;
+	op.SetNumOfFace(numOfFaces);
+	op.SetNumOfPoint(numOfPoints);
+	for (draco::FaceIndex i(0); i < numOfFaces; ++i) {
+		draco::Mesh::Face face = mesh.face(i);
+		op.SetFace(i.value(), face[0].value(), face[1].value(), face[2].value());
+	}
+	for (draco::PointIndex i(0); i < numOfPoints; ++i) {
+		float vec3[3];
+		pos->GetMappedValue(i, vec3);
+		op.SetPosition(i.value(), vec3[0], vec3[1], vec3[2]);
+	}
+	if (!op.Finalize(outputName))
+		MLOG(op.err_msg());
+}
+
+inline void checkGLTFMeshIndexAndPos(tinygltf::Model& m, tinygltf::Primitive& pte, const char* name) {
+	if (pte.mode != TINYGLTF_MODE_TRIANGLES) return;
+	int indexAccessorID = pte.indices;
+	int posAccessorID = pte.attributes["POSITION"];
+	tinygltf::Accessor& idxAcc = m.accessors[indexAccessorID];
+	tinygltf::Accessor& posAcc = m.accessors[posAccessorID];
+	size_t numOfIndex = idxAcc.count;
+	size_t numOfFaces = idxAcc.count / 3;
+	size_t numOfPoints = posAcc.count;
+
+	int bufView, bufOffset;
+	int bufID, byteOffset, byteStride;
+	uint8_t* data = nullptr;
+
+	OBJHelper oh;
+	oh.SetNumOfFace(numOfFaces);
+	oh.SetNumOfPoint(numOfPoints);
+	// index
+	bufView = idxAcc.bufferView;
+	bufOffset = idxAcc.byteOffset;
+	bufID = m.bufferViews[bufView].buffer;
+	byteOffset = m.bufferViews[bufView].byteOffset;
+	byteStride = m.bufferViews[bufView].byteStride;
+
+	data = &m.buffers[bufID].data[0];
+	data += byteOffset + bufOffset;
+	size_t idxSize = 0;
+	switch (idxAcc.componentType)
+	{
+	case TINYGLTF_COMPONENT_TYPE_BYTE:
+		idxSize = 1;
+		break;
+	case TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT:
+		idxSize = 2;
+		break;
+	case TINYGLTF_COMPONENT_TYPE_UNSIGNED_INT:
+		idxSize = 4;
+		break;
+	}
+
+	for (int i = 0; i < numOfFaces; ++i) {
+		uint32_t idx[3] = { 0 };
+		memcpy_s(&idx[0], idxSize, data, idxSize); data += idxSize;
+		memcpy_s(&idx[1], idxSize, data, idxSize); data += idxSize;
+		memcpy_s(&idx[2], idxSize, data, idxSize); data += idxSize;
+		oh.SetFace(i, ARR3(idx));
+		data += byteStride;
+	}
+
+	// positions
+	bufView = posAcc.bufferView;
+	bufOffset = posAcc.byteOffset;
+	bufID = m.bufferViews[bufView].buffer;
+	byteOffset = m.bufferViews[bufView].byteOffset;
+	byteStride = m.bufferViews[bufView].byteStride;
+
+	data = &m.buffers[bufID].data[0];
+	data += byteOffset + bufOffset;
+	for (int i = 0; i < numOfPoints; ++i) {
+		float pos[3];
+		memcpy_s(pos, 12, data, 12);
+		oh.SetPosition(i, ARR3(pos));
+		data += 12 + byteStride;
+	}
+	oh.Finalize(name);
+}
 #endif /* TEST_COMPRESS */
 
 /* local helper functions */
-std::vector<AttributeDesc> GenerateAttributeDescByPrimitive(const tinygltf::Primitive& pri) {
+std::vector<AttributeDesc> generateAttributeDescByPrimitive(const tinygltf::Primitive& pri) {
 	std::vector<AttributeDesc> res;
 	int accessorID = 0;
 	int bufferView = 0, buffer = 0, byteOffset = 0;
