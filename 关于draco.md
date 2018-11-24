@@ -4,10 +4,33 @@
 
 文档描述Draco的调用方式以及原理
 
-draco的源码编写中，类的成员变量基本都是私有的，有两种方式访问这些变量
+## draco的源码编写方式分析
+
+### 数据成员的强封装
+
+类的成员变量基本都是私有的，有两种方式访问这些变量
 
 1. 利用Get/Set函数
 2. 提供const函数，返回成员变量的常引用
+
+### 强类型约束
+
+对于底层数据类型相同，但意义不同的两类数据，使用宏+模板+结构体的方式进行区分。比如同样可以用uint表示faceIndex和pointIndex，但两者由于类型名称不同，且构造函数使用了`explicit`关键字修饰，防止隐性类型转换的发生。
+
+### 描述式的函数设置方式
+
+一个函数包含非常多步骤时，将这些步骤进行分类，构成多个子函数，并在命名上加以描述，使得原函数运行逻辑的可读性更强。比如
+
+```c++
+bool MakeSomething() {
+    if (!ProcessOne()) return false;
+    if (!ProcessTwo()) return false;
+    if (!ProcessThree()) return false;
+    return true;
+}
+```
+
+---
 
 ## 关键词汇
 
@@ -27,13 +50,11 @@ draco的源码编写中，类的成员变量基本都是私有的，有两种方
 
 ### 压缩
 
-![draco压缩分析](diagrams-Draco分析.jpg)
-
 ---
 
 #### Encoder
 
-​	压缩启动需要Encoder对象，Encoder对象继承自EncoderBase，相当于一个具体实现。能够通过该对象设置一些可配置属性，包括压缩速度以及压缩质量。最关键的函数为
+​	压缩启动需要Encoder对象，Encoder对象继承自EncoderBase，该对象主要作用是设置编码器的属性，而并非编码的实际执行者。属性包括压缩速度以及压缩质量，这些属性会影响之后的压缩算法的选择。启动函数为：
 
 ```c++
 Status EncodePointCloudToBuffer(const PointCloud &pc, EncoderBuffer *out_buffer);
@@ -42,7 +63,9 @@ Status EncodeMeshToBuffer(const Mesh &m, EncoderBuffer *out_buffer);
 
 ​	这两个函数将Mesh或者PointCloud进行压缩，并输出压缩后的数据(Mesh继承自PointCloud，Mesh相当于带有点之间关系的点云
 
-​	参考:*draco/compression/encode.h*
+#### ExpertEncoder
+
+​	和Encoder的职责相同，但是提供更多属性设置上的选择。Encoder相当于ExpertEncoder的简化版/包装版。
 
 #### PointCloud
 
@@ -94,3 +117,19 @@ Status EncodeMeshToBuffer(const Mesh &m, EncoderBuffer *out_buffer);
 #### Face
 
 ​	定义于Mesh类中，其实就是一个3元数组，元素为PointIndex。可以理解为存储索引的位置，存储的PointIndex可以通过PointAttribute索引出面上某个顶点的某个属性值。
+
+#### Options
+
+​	其核心成员属性为`std::map<std::string, std::string>`，专门用于记录\<属性名称，属性值\>键值对。属性值类型包括int, float, bool等基本属性，通过使用atoX来完成string到实际值的转换。属性的意义由派生类决定。
+
+#### DracoOptions\<AttributeType\>
+
+​	其核心成员属性为Options，该成员用于存储全局属性设置。
+
+​	另外一个成员属性为`std::map<std::AttributeType, Options>`。用于为每个AttributeType记录\<属性名，属性值\>。AttributeType是模板参数，通常是枚举值，也可以是int，float等基本类型。
+
+​	该类常常作为全局属性的记录器
+
+#### EncoderOptionsBase
+
+​	继承自DracoOptions，同样含有Options成员属性。但该类仅记录与编码器相关的属性值，比如压缩方法的选择，压缩的速度，压缩质量等。
