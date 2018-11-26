@@ -17,13 +17,17 @@
 * [x] 解析gltf，提取模型bin数据
 
   * 可以直接利用tinygltf读取其中所有属性的内容
+* [ ] 生成draco对象并进行压缩
 
-* [ ] 生成draco的mesh对象
+  * [x] 提取gltf中的triangle primitive手动构造draco::mesh
+  * [ ] 检验压缩前后模型的数据一致性：
+    * [x] 索引信息
+    * [x] 位置信息
+    * [x] 法线信息
+    * [ ] 贴图坐标信息(第一套)
+  * [ ] 读取多个triangle primitive进行压缩，并合并到一个buffer中
+  * [ ] 处理非triangle primitive
+  * [ ] c++测试从draco::mesh还原gltf
+* [ ] linux下编译测试
+* [ ] 前端包开发
 
-  * 当前已经可以利用draco的`triangle_soup_mesh_builder`生成mesh
-
-  * 尚未验证使用的builder生成的内容是否正确——应该将mesh重新生成gltf后加以验证
-
-  * 尚未考虑从gltf中加载多个模型的情况，尚未考虑压缩点，线图元的情况
-
-  * 正在进行从draco::mesh还原gltf的过程

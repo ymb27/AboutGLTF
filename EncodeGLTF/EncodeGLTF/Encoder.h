@@ -9,6 +9,22 @@ namespace GLTF_ENCODER {
 		GES_OK,
 		GES_ERR
 	};
+	/* attributes are not defined by draco */
+	enum GLTF_EXTENT_ATTRIBUTE {
+		TANGENT = 200
+	};
+
+	struct EncoderHeader {
+		uint8_t headerSize;
+		uint8_t numOfbuffer;
+		uint8_t headerOffset;
+	};
+
+	struct BufferHeader {
+		uint8_t headerSize;
+		uint8_t headerOffset;
+		uint32_t bufferLength;
+	};
 
 	class Encoder {
 	public:

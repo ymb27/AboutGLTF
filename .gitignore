@@ -1,10 +1,12 @@
 /EncodeGLTF/Debug
 /EncodeGLTF/EncodeGLTF/Debug
 /EncodeGLTF/.vs
-#忽略依赖平台的lib,dll文件，仅保留文件夹路径
+#锟斤拷锟斤拷锟斤拷锟斤拷平台锟斤拷lib,dll锟侥硷拷锟斤拷锟斤拷锟斤拷锟斤拷锟侥硷拷锟斤拷路锟斤拷
 /EncodeGLTF/3rdpart/draco/bin/*.dll
 /EncodeGLTF/3rdpart/draco/bin/*.exe
 /EncodeGLTF/3rdpart/draco/lib/*.lib
 /EncodeGLTF/3rdpart/zlib-1.2.11/lib/*.lib
-#中间生成的obj也不进行上传
+#锟叫硷拷锟斤拷锟缴碉拷obj也锟斤拷锟斤拷锟斤拷锟较达拷
 /EncodeGLTF/EncodeGLTF/*.obj
+*.bin
+*.gltf
