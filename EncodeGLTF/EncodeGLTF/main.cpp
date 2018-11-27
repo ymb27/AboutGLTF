@@ -52,7 +52,7 @@ int main() {
 		LoadStringFromFile(FILE_PATH)
 	);
 	if (state != GLTF_ENCODER::GES_OK)
-		std::cout << ec.GetErrorMsg() << std::endl;
+		std::cout << ec.ErrorMsg() << std::endl;
 	system("pause");
 	return 0;
 }

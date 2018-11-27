@@ -179,12 +179,15 @@ namespace tinygltf {
 	struct Primitive;
 }
 void GLTFMeshToOBJ(tinygltf::Model& m, tinygltf::Primitive& pte, const char* name);
+void DracoMeshToGLTFMesh(tinygltf::Model& m, tinygltf::Mesh	& outputMesh, 
+	draco::Mesh& mesh, const GLTF_ENCODER::MeshBufferHeader& header);
 
 #if defined(UTILITY_IMPLEMENTATION)
 struct {
 	std::unique_ptr< draco::Mesh > meshPtr;
 } T_GVAR;
 #endif
+GE_STATE decompress(const int8_t* data);
 GE_STATE decompressMesh(const int8_t* data, size_t size);
 GE_STATE analyseDecompressMesh();
 

@@ -69,7 +69,7 @@ Status EncodeMeshToBuffer(const Mesh &m, EncoderBuffer *out_buffer);
 
 #### PointCloud
 
-​	两个关键字metadata attributes，可以利用**PointCloudBuilder**辅助创建点云
+​	两个关键字metadata attributes，可以利用**PointCloudBuilder**辅助创建点云。当使用builder创建时，假如开启了*去重复宏*，就会遍历每个属性，属性中相同的值会被合并。手动创建时，可显示调用去重复函数`DeduplicateAttributeValues`进行属性去重
 
 #### EntryValue
 
@@ -100,9 +100,11 @@ Status EncodeMeshToBuffer(const Mesh &m, EncoderBuffer *out_buffer);
 
 #### Mesh
 
-​	利用**triangle_soup_mesh_builder**可以简洁地创建mesh
+​	利用**triangle_soup_mesh_builder**可以简洁地创建mesh。注意：使用builder创建Mesh后，假如设置了*去重复*宏，会自动调用`DeduplicateAttributeValues`以及`DeduplicatePointIds`。前者将每个属性中，相同的数值会被合并；后者是根据两个pointID代表的点，其所有属性进行一一比较，假如都相同，就将这两个PointID合并为一个。
 
-​	一个mesh关心两个数据，一个是PointAttribute，一个是Face。
+​	手动生成Mesh时，可显示调用上述两个函数进行去重。
+
+​	一个mesh关心两个数据，一个是PointAttribute，一个是Face。利用`addAttribute`增加点属性，利用`setFace`设置面的PointID索引。
 
 #### PointAttribute
 
@@ -113,6 +115,10 @@ Status EncodeMeshToBuffer(const Mesh &m, EncoderBuffer *out_buffer);
 ​	比如说A点和B点的属性数据相同，其属性值位于内存的X地址处，那么index_map[A]和index_map[B]都会存放X。
 
 ​	在不考虑消除重复属性值的情况下，还可以设置IdentityMapping和ExplicitMapping设置index_map的值。其中identityMapping相当于一一对应的关系，即一个点ID对应一个数据存储位置；而ExplicitMapping意味着手动设置内存位置对应关系，需要提供index_map的相关设置方法。	
+
+​	PointAttribute的去重方法会由PointBuilder或者MeshBuilder调用，若非手动调用，数据是不会去重的。(去重后压缩比率可进一步增加，但去重后的缓冲区将不能使用原来的索引进行查询，必须重新构建缓冲区)
+
+​	PointAttribute可以利用继承自GeometryAttribute的`init`方法进行初始化。但PointAttribute中存储属性数据的buffer与GeometryAttribute中的buffer是不一样的！`init`方法仅作为初始化Attribute的基本属性，如大小，元素数量等。在init完之后，需要利用PointAttribute的`reset`函数调整buffer的大小，并利用函数`buffer`获得PointAttribute的bufferData，结合其write函数向缓冲区中写入数据。
 
 #### Face
 

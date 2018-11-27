@@ -19,16 +19,19 @@ using namespace GLTF_ENCODER;
 
 #ifdef TEST_COMPRESS
 #include "Utility.h"
+/* LOG for developing data */
 #define MLOG(...) Test_Log(__VA_ARGS__ )
 #define DRACO_MESH_TO_OBJ(mesh, name) DracoMeshToOBJ(mesh, name)
 #define GLTF_MESH_TO_OBJ(model, mesh, name) GLTFMeshToOBJ(model, mesh, name)
-#define DECOMPRESS_TEST(data, size) decompressMesh(data, size)
+#define DECOMPRESS(data) decompress(data)
+#define DECOMPRESS_MESH(data, size) decompressMesh(data, size)
 #define ANALYSE_DECOMPRESS() analyseDecompressMesh()
 #else
 #define MLOG(...)
 #define DRACO_MESH_TO_OBJ(mesh, name)
 #define GLTF_MESH_TO_OBJ(model, mesh, name)
-#define DECOMPRESS_TEST(data, size) GES_OK
+#define DECOMPRESS(data)
+#define DECOMPRESS_MESH(data, size) GES_OK
 #define ANALYSE_DECOMPRESS() GES_OK
 #endif /* TEST_COMPRESS */
 
@@ -38,76 +41,124 @@ using namespace GLTF_ENCODER;
 /* global variable */
 struct {
 	tinygltf::Model model;
-	std::string err;
-	std::string warn;
-	unique_ptr<draco::Mesh> mesh;
+	std::string* err;
+	std::string* warn;
 } GVAR;
 
 /* load model data from json data */
 inline GE_STATE loadModel(const std::string&);
-/* Traverse all the primitives of meshes in gltf file */
-inline GE_STATE traverseModel();
 /* make a draco mesh according to the triangle primitive */
 /* caller should guarantee that primitive is triangle */
-inline GE_STATE makeMesh(tinygltf::Primitive& triangleMeshPrimitive);
+inline GE_STATE makeMesh(const tinygltf::Primitive& triangleMeshPrimitive, 
+	std::unique_ptr<draco::Mesh>& outputMesh, MeshBufferHeader& header);
 /* compress mesh maked by previous function */
-inline GE_STATE compress(std::unique_ptr< std::vector<int8_t> >&);
+inline GE_STATE compressMesh(std::unique_ptr<draco::Mesh>& inputMesh,
+	std::unique_ptr< std::vector<int8_t> >& outputBuffer, MeshBufferHeader& header);
 
 GE_STATE Encoder::EncodeFromAsciiMemory(const std::string& jData) {
+	GVAR.err = &m_err;
+	GVAR.warn = &m_warn;
 	GE_STATE state = GES_OK;
 	state = loadModel(jData);
 	if (state != GES_OK) return state;
-	state = makeMesh(GVAR.model.meshes[0].primitives[0]);
-	if (state != GES_OK) return state;
-	state = compress(m_outBuffer);
+	/* preallocate space for buffer-pointer container */
+	/* assume that each mesh has two primitives */
+	m_buffers.reserve(GVAR.model.meshes.size() * 2);
+	/* Traversal model file and compressed each primitive */
+	/* TODO: currently only support triangle and ignore its material */
+	for (tinygltf::Mesh& mesh : GVAR.model.meshes) {
+		for (tinygltf::Primitive& pri : mesh.primitives) {
+			if (pri.mode == TINYGLTF_MODE_TRIANGLES) {
+				MeshBufferHeader header;
+				/* build a mesh according to primitive's attributes */
+				std::unique_ptr<draco::Mesh> mesh;
+				state = makeMesh(pri, mesh, header);
+				if (state != GES_OK) return state;
+				/* buffer that contain this primitives compressed data */
+				/* It needs to be merge within m_outBuffer */
+				std::unique_ptr<std::vector<int8_t> > compressBuffer;
+				state = compressMesh(mesh, compressBuffer, header);
+				if (state != GES_OK) return state;
+				/* save compressBuffer*/
+				state = addBuffer(std::move(compressBuffer));
+				if (state != GES_OK) return state;
+			}
+		}
+	}
+	/* merge compressBuffer into m_outBuffer */
+	state = finalize();
 	if (state != GES_OK) return state;
 
-	state = DECOMPRESS_TEST(&(*m_outBuffer)[0], (*m_outBuffer).size());
+	state = DECOMPRESS(m_outBuffer->data());
 	if (state != GES_OK) return state;
-	state = ANALYSE_DECOMPRESS();
 	return state;
 }
 
-std::string Encoder::GetErrorMsg() const { return GVAR.err; }
-std::string Encoder::GetWarnMsg() const { return GVAR.warn; }
+const std::string& Encoder::ErrorMsg() const { return m_err; }
+const std::string& Encoder::WarnMsg() const { return m_warn; }
+
+GE_STATE Encoder::addBuffer(std::unique_ptr< std::vector<int8_t> > inputBuffer) {
+	m_buffers.push_back(std::move(inputBuffer));
+	return GES_OK;
+}
+
+GE_STATE Encoder::finalize() {
+	EncoderHeader eh;
+	eh.numOfbuffer = static_cast<uint32_t>(m_buffers.size());
+	eh.bufferLength = sizeof(EncoderHeader);
+	for (const std::unique_ptr< std::vector<int8_t> >& iter : m_buffers) {
+		eh.bufferLength += iter->size();
+	}
+	m_outBuffer = std::make_unique< std::vector<int8_t> >();
+	size_t bufSize = eh.bufferLength;
+	m_outBuffer->resize(bufSize);
+	/* copy header data into buffer */
+	int8_t* bufData = m_outBuffer->data();
+	memcpy_s(bufData, sizeof(EncoderHeader),
+		&eh, sizeof(EncoderHeader));
+	/* merge each buffer data into outBuffer */
+	bufData += sizeof(EncoderHeader);
+	for (const std::unique_ptr< std::vector<int8_t> >& iter : m_buffers) {
+		memcpy_s(bufData, iter->size(),
+			iter->data(), iter->size());
+		bufData += iter->size();
+	}
+	return GES_OK;
+}
 
 /* private helper functions */
 GE_STATE loadModel(const std::string& jData) {
 	std::string base_dir;
 	tinygltf::TinyGLTF loader;
 	GE_STATE state;
-	bool ret = loader.LoadASCIIFromString(&GVAR.model, &GVAR.err, &GVAR.warn, jData.c_str(), jData.size(), base_dir);
+	bool ret = loader.LoadASCIIFromString(&GVAR.model, GVAR.err, GVAR.warn, jData.c_str(), jData.size(), base_dir);
 	state = ret ? GES_OK : GES_ERR;
 	if (state != GES_OK)	return state;
 	/* It's invalid to compress a gltf file without any meshes */
 	size_t numOfMesh = GVAR.model.meshes.size();
 	if (numOfMesh <= 0) {
-		GVAR.err = "No Mesh!";
+		*GVAR.err = "No Mesh!";
 		state = GES_ERR;
 	}
 	GLTF_MESH_TO_OBJ(GVAR.model, GVAR.model.meshes[0].primitives[0], "from gltf.obj");
 	return state;
 }
 
-GE_STATE traverseModel() {
-	for (tinygltf::Mesh& mesh : GVAR.model.meshes) {
-		for (tinygltf::Primitive& pri : mesh.primitives) {
-			if (pri.mode == TINYGLTF_MODE_TRIANGLES) {
-
-			}
-		}
-	}
-}
-
-GE_STATE makeMesh(tinygltf::Primitive& pri) {
+GE_STATE makeMesh(const tinygltf::Primitive& pri,
+	std::unique_ptr<draco::Mesh>& outputMesh,
+	MeshBufferHeader& header) {
 
 	size_t numOfFaces = tinygltf_wrapper::NumOfFaces(pri, GVAR.model);
 	size_t numOfPoints = tinygltf_wrapper::NumOfPoints(pri, GVAR.model);
 
-	GVAR.mesh = std::make_unique<draco::Mesh>();
-	draco::Mesh& m = (*GVAR.mesh);
+	outputMesh = std::make_unique<draco::Mesh>();
+	draco::Mesh& m = (*outputMesh);
 	m.SetNumFaces(numOfFaces);
 	m.set_num_points(numOfPoints);
+
+	enum {
+		TANGENT
+	} extentPointType;
 
 	/* processing index */
 	/* doesn't support sparse accessor */
@@ -123,7 +174,6 @@ GE_STATE makeMesh(tinygltf::Primitive& pri) {
 	for (const auto& iter : pri.attributes) {
 		draco::GeometryAttribute::Type geoAttType;
 		draco::DataType geoDataType;
-		uint32_t specAttType;
 		tinygltf::Accessor& attAcc = GVAR.model.accessors[iter.second];
 		int8_t numOfCmp = 0;
 		if (!iter.first.compare("POSITION")) {
@@ -153,9 +203,9 @@ GE_STATE makeMesh(tinygltf::Primitive& pri) {
 		}
 		else if (!iter.first.compare("TANGENT")) {
 			geoAttType = draco::GeometryAttribute::INVALID;
-			specAttType = GLTF_EXTENT_ATTRIBUTE::TANGENT;
 			geoDataType = draco::DataType::DT_FLOAT32;
 			numOfCmp = 4;
+			extentPointType = TANGENT;
 		}
 		else {
 			/* TODO: need to support other attribute */
@@ -169,41 +219,73 @@ GE_STATE makeMesh(tinygltf::Primitive& pri) {
 			/* and components when add attribute to mesh */
 			geoAtt.Init(geoAttType, nullptr, numOfCmp, geoDataType, attAcc.normalized, 0, 0);
 			int attID = m.AddAttribute(geoAtt, true, numOfPoints);
+			switch (geoAttType)
+			{
+			case draco::GeometryAttribute::POSITION:
+				header.positionID = attID;
+				break;
+			case draco::GeometryAttribute::NORMAL:
+				header.normalID = attID;
+				break;
+			case draco::GeometryAttribute::COLOR:
+				header.colorID = attID;
+				break;
+			case draco::GeometryAttribute::TEX_COORD:
+				header.texcoordID = attID;
+				break;
+			}
 			tinygltf_wrapper::DataContainer dc = tinygltf_wrapper::DataContainer::Create(attAcc, GVAR.model);
 			m.attribute(attID)->buffer()->Write(0, &dc.packBuffer()[0], dc.size() * dc.count());
 			m.SetAttributeElementType(attID, draco::MeshAttributeElementType::MESH_VERTEX_ATTRIBUTE);
 		}
 		else {
+			tinygltf_wrapper::DataContainer dc = tinygltf_wrapper::DataContainer::Create(attAcc, GVAR.model);
 			std::unique_ptr<draco::PointAttribute> pntAtt = std::make_unique<draco::PointAttribute>();
 			pntAtt->Init(draco::GeometryAttribute::GENERIC, nullptr, numOfCmp, geoDataType, attAcc.normalized, 0, 0);
+			pntAtt->SetIdentityMapping();
+			pntAtt->Reset(dc.count());
 			/* WARNNING: after set attribute pntAtt won't have any ownership of PointAttribute */
-			m.SetAttribute(specAttType, std::move(pntAtt));
-			tinygltf_wrapper::DataContainer dc = tinygltf_wrapper::DataContainer::Create(attAcc, GVAR.model);
-			m.attribute(specAttType)->buffer()->Write(0, &dc.packBuffer()[0], dc.size() * dc.count());
-			m.SetAttributeElementType(specAttType, draco::MeshAttributeElementType::MESH_VERTEX_ATTRIBUTE);
+			int attID = m.AddAttribute(std::move(pntAtt));
+			switch (extentPointType)
+			{
+			case TANGENT:
+				header.tangentID = attID;
+				break;
+			}
+			m.attribute(attID)->buffer()->Write(0, &dc.packBuffer()[0], dc.size() * dc.count());
+			m.SetAttributeElementType(attID, draco::MeshAttributeElementType::MESH_VERTEX_ATTRIBUTE);
 		}
 	}
-
-	DRACO_MESH_TO_OBJ(m, "draco mesh.obj");
 
 	return GES_OK;
 }
 
-GE_STATE compress(std::unique_ptr< std::vector<int8_t> >& ptr) {
+GE_STATE compressMesh(std::unique_ptr<draco::Mesh>& inputMesh,
+	std::unique_ptr< std::vector<int8_t> >& outputBuffer,
+	MeshBufferHeader& header) {
 	draco::Encoder edr;
 	edr.SetTrackEncodedProperties(true);
+	
 	draco::EncoderBuffer eBuf;
 	draco::Status status;
 
-	status = edr.EncodeMeshToBuffer(*GVAR.mesh, &eBuf);
+	status = edr.EncodeMeshToBuffer(*inputMesh, &eBuf);
 	if (!status.ok()) {
-		GVAR.err = status.error_msg_string();
+		*GVAR.err = status.error_msg_string();
 		return GES_ERR;
 	}
-	ptr = std::make_unique< std::vector<int8_t> >();
-	size_t bufSize = eBuf.size();
-	(*ptr).resize(bufSize);
-	memcpy_s(&(*ptr)[0], bufSize, eBuf.data(), bufSize);
+	outputBuffer = std::make_unique< std::vector<int8_t> >();
+	/* reserve space for bufferHeader, bufferHeader + bufferData */
+	size_t bufSize = eBuf.size() + sizeof(MeshBufferHeader);
+	(*outputBuffer).resize(bufSize);
+	int8_t* bufPtr = (*outputBuffer).data();
+
+	/* write header data into outputBuffer*/
+	header.bufferLength = bufSize;
+	memcpy_s(bufPtr, sizeof(MeshBufferHeader), &header, sizeof(MeshBufferHeader));
+	bufPtr += sizeof(MeshBufferHeader);
+
+	memcpy_s(bufPtr, eBuf.size(), eBuf.data(), eBuf.size());
 	MLOG("compressed size ", bufSize);
 	MLOG("compressed points ", edr.num_encoded_points());
 	MLOG("compressed faces ", edr.num_encoded_faces());
