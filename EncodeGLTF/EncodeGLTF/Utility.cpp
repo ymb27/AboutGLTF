@@ -191,7 +191,7 @@ inline size_t attributeAccessorID(tinygltf::Model& m, draco::Mesh& mesh, uint32_
 }
 
 void DracoMeshToGLTFMesh(tinygltf::Model& m, tinygltf::Mesh& outputMesh,
-	draco::Mesh& mesh, const GLTF_ENCODER::MeshBufferHeader& header) {
+	draco::Mesh& mesh, const GLTF_ENCODER::EncodedMeshBufferDesc& header) {
 	/* There must be position data */
 	if (header.positionID == 0xffu) {
 		Test_Log("no position data!");
@@ -234,10 +234,10 @@ GE_STATE decompress(const int8_t* data) {
 	dataPtr += eh.headerSize;
 	char outputName[] = "decompressed0.obj";
 	for (uint32_t i = 0; i < eh.numOfbuffer; ++i) {
-		MeshBufferHeader bh;
-		memcpy_s(&bh, sizeof(MeshBufferHeader),
-			dataPtr, sizeof(MeshBufferHeader));
-		state = decompressMesh(dataPtr + bh.headerSize, bh.bufferLength - sizeof(MeshBufferHeader));
+		EncodedMeshBufferDesc bh;
+		memcpy_s(&bh, sizeof(EncodedMeshBufferDesc),
+			dataPtr, sizeof(EncodedMeshBufferDesc));
+		state = decompressMesh(dataPtr + bh.headerSize, bh.bufferLength - sizeof(EncodedMeshBufferDesc));
 		if (state != GES_OK) { return state; }
 		outputName[12] = i + 'A';
 		DracoMeshToOBJ(*T_GVAR.meshPtr, outputName);

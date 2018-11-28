@@ -180,7 +180,7 @@ namespace tinygltf {
 }
 void GLTFMeshToOBJ(tinygltf::Model& m, tinygltf::Primitive& pte, const char* name);
 void DracoMeshToGLTFMesh(tinygltf::Model& m, tinygltf::Mesh	& outputMesh, 
-	draco::Mesh& mesh, const GLTF_ENCODER::MeshBufferHeader& header);
+	draco::Mesh& mesh, const GLTF_ENCODER::EncodedMeshBufferDesc& header);
 
 #if defined(UTILITY_IMPLEMENTATION)
 struct {

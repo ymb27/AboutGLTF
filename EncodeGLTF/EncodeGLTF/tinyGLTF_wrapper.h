@@ -1,6 +1,7 @@
 ﻿#ifndef TINYGLTF_WRAPPER
 #define TINYGLTF_WRAPPER
 #include <tinygltf/tiny_gltf.h>
+#include <functional>
 
 namespace tinygltf_wrapper {
 
@@ -121,6 +122,46 @@ namespace tinygltf_wrapper {
 				break;
 			}
 			return INVALID_UINT_32;
+		}
+		std::function<bool(uint32_t, uint32_t)> WriteFunc(int componentType) {
+			std::function<bool(uint32_t, uint32_t)> retFunc;
+			switch (componentType)
+			{
+			case TINYGLTF_COMPONENT_TYPE_UNSIGNED_BYTE:
+				retFunc = [this](uint32_t idx, uint32_t value) -> bool {
+					if (idx < dc.count()) {
+						uint8_t* dataPtr = dc.data() + idx * 1;
+						(*dataPtr) = static_cast<uint8_t>(value);
+						return true;
+					}
+					return false;
+				};
+				break;
+			case TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT:
+				retFunc = [this](uint32_t idx, uint32_t value) -> bool {
+					if (idx < dc.count()) {
+						uint16_t* dataPtr = reinterpret_cast<uint16_t*>(dc.data() + idx * 2);
+						(*dataPtr) = static_cast<uint16_t>(value);
+						return true;
+					}
+					return false;
+				};
+				break;
+			case TINYGLTF_COMPONENT_TYPE_UNSIGNED_INT:
+				retFunc = [this](uint32_t idx, uint32_t value) -> bool {
+					if (idx < dc.count()) {
+						uint32_t* dataPtr = reinterpret_cast<uint32_t*>(dc.data() + idx * 4);
+						(*dataPtr) = value;
+						return true;
+					}
+					return false;
+				};
+				break;
+			default:
+				assert(false);
+				break;
+			}
+			return retFunc;
 		}
 	private:
 		DataContainer dc;

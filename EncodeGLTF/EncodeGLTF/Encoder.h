@@ -16,8 +16,8 @@ namespace GLTF_ENCODER {
 		uint32_t bufferLength = 0; /* length of all data: header + buffers */
 	};
 
-	struct MeshBufferHeader {
-		const uint8_t headerSize = sizeof(MeshBufferHeader);
+	struct EncodedMeshBufferDesc {
+		const uint8_t headerSize = sizeof(EncodedMeshBufferDesc);
 		uint32_t bufferLength = 0; /* length of the buffer: header + data */
 		uint8_t positionID = 0xffu;
 		uint8_t normalID = 0xffu;

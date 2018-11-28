@@ -65,9 +65,33 @@ gltf原buffer中包含的数据均可放在此处；binary chunk可以有多个
 
 chunk的格式较为统一，length说明该chunk的大小，单位字节；type仅有两种，一种是json chunk，另一种是binary chunk，不是这两种类型的chunk，默认实现是对其进行忽略；data数组则存储实际二进制数据。
 
+## Draco的扩展
+
+gltf中的material，primitive等都支持扩展，所谓扩展就是向gltf中绑定更多数据，并用额外的规约说明这些数据的用途。所有的扩展都需要在全局属性`extensionsUsed`以及`extensionsRequired`中进行标注声明。
+
+* `Used`代表当前gltf文件中使用到的扩展，加载引擎假如不支持该扩展，可以无视包含该扩展的一切对象并正常加载gltf的基本版本
+* `required`则代表当前gltf文件必须使用某个扩展，假如引擎不支持该扩展，则不可以成功加载该文件。
+
+所以`required`是`used`的子集
+
+Draco的扩展是`KHR_draco_mesh_compression`。目前该扩展只能用在primitive上，且primitive的mode必须是triangle或者triangle strip。
+
+对于exporter而言，在输出一个支持draco扩展的primitive时，必须设置好primitive的attributes以及indices属性。
+
+* attributes指向的是一个accessor的id，对应id的accessor不需要设置具体的bufferView，以及byteOffset。只需要设置好component，type等描述数据结构的属性
+* indices需要设置为**解压后的索引**
+
+另外，primitive中还需要添加extensions对象。该对象中包含了KHR_draco_mesh_compression对象，而该对象又包括一个bufferView以及一系列的attributes
+
+* bufferView用于指定包含draco压缩数据的buffer段
+* attributes包含的属性必须是之前primitive所包含的属性的子集。比如原primitive中有属性POS, NOR以及TEX；那么extensions的attributes就只能包含这些属性，额外的属性将会被忽视。而且这里的attribute跟着的数字是draco::Mesh中对应的attribute的id，而不是accessor的id。
+
+具体设置可以参考draco_mesh_compression规约[3]
+
 ## 参考
 
 ---
 
 1. [gltf文件规约](https://github.com/KhronosGroup/glTF/tree/master/specification/2.0)
 2. [gltf入门教程](https://github.com/KhronosGroup/glTF-Tutorials/blob/master/gltfTutorial/README.md)
+3. [draco_mesh_compression规约](https://github.com/KhronosGroup/glTF/blob/master/extensions/2.0/Khronos/KHR_draco_mesh_compression/README.md)

@@ -1,4 +1,4 @@
-//
+﻿//
 // Header-only tiny glTF 2.0 loader and serializer.
 //
 //
@@ -646,6 +646,9 @@ struct Primitive {
   // "TANGENT"] pointing
   // to their corresponding accessors
   Value extras;
+  /* !WARNNING! Custom modified! It's different from origin version */
+  /* need to support extensions */
+  Value extensions;
 
   Primitive() {
     material = -1;
@@ -4381,6 +4384,10 @@ static void SerializeGltfMesh(Mesh &mesh, json &o) {
     if (gltfPrimitive.extras.Type() != NULL_TYPE) {
       SerializeValue("extras", gltfPrimitive.extras, primitive);
     }
+	/* !WARNNING! modified to support extension's serialization */
+	if (gltfPrimitive.extensions.Type() != NULL_TYPE) {
+		SerializeValue("extensions", gltfPrimitive.extensions, primitive);
+	}
 
     primitives.push_back(primitive);
   }

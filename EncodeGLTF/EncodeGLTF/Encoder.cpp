@@ -40,7 +40,7 @@ using namespace GLTF_ENCODER;
 
 /* global variable */
 struct {
-	tinygltf::Model model;
+	std::unique_ptr< tinygltf::Model > model;
 	std::string* err;
 	std::string* warn;
 } GVAR;
@@ -50,10 +50,16 @@ inline GE_STATE loadModel(const std::string&);
 /* make a draco mesh according to the triangle primitive */
 /* caller should guarantee that primitive is triangle */
 inline GE_STATE makeMesh(const tinygltf::Primitive& triangleMeshPrimitive, 
-	std::unique_ptr<draco::Mesh>& outputMesh, MeshBufferHeader& header);
+	std::unique_ptr<draco::Mesh>& outputMesh, EncodedMeshBufferDesc& header);
 /* compress mesh maked by previous function */
 inline GE_STATE compressMesh(std::unique_ptr<draco::Mesh>& inputMesh,
-	std::unique_ptr< std::vector<int8_t> >& outputBuffer, MeshBufferHeader& header);
+	std::unique_ptr< std::vector<uint8_t> >& outputBuffer);
+/* targetPri is the origin primitive, this function will add extension to it */
+/* and reset its attributes' bufferView ID since it won't use uncompress data any more */
+inline GE_STATE setDracoCompressPrimitive(tinygltf::Primitive& targetPri, tinygltf::Model& targetMod,
+	const EncodedMeshBufferDesc& desc, 
+	std::unique_ptr<std::vector<uint8_t> >& compressData,
+	std::unique_ptr<std::vector<uint32_t> >& compressIndices);
 
 GE_STATE Encoder::EncodeFromAsciiMemory(const std::string& jData) {
 	GVAR.err = &m_err;
@@ -63,25 +69,24 @@ GE_STATE Encoder::EncodeFromAsciiMemory(const std::string& jData) {
 	if (state != GES_OK) return state;
 	/* preallocate space for buffer-pointer container */
 	/* assume that each mesh has two primitives */
-	m_buffers.reserve(GVAR.model.meshes.size() * 2);
+	m_buffers.reserve(GVAR.model->meshes.size() * 2);
 	/* Traversal model file and compressed each primitive */
 	/* TODO: currently only support triangle and ignore its material */
-	for (tinygltf::Mesh& mesh : GVAR.model.meshes) {
+	for (tinygltf::Mesh& mesh : GVAR.model->meshes) {
 		for (tinygltf::Primitive& pri : mesh.primitives) {
 			if (pri.mode == TINYGLTF_MODE_TRIANGLES) {
-				MeshBufferHeader header;
+				EncodedMeshBufferDesc header;
 				/* build a mesh according to primitive's attributes */
 				std::unique_ptr<draco::Mesh> mesh;
 				state = makeMesh(pri, mesh, header);
 				if (state != GES_OK) return state;
 				/* buffer that contain this primitives compressed data */
 				/* It needs to be merge within m_outBuffer */
-				std::unique_ptr<std::vector<int8_t> > compressBuffer;
-				state = compressMesh(mesh, compressBuffer, header);
+				std::unique_ptr<std::vector<uint8_t> > compressBuffer;
+				state = compressMesh(mesh, compressBuffer);
 				if (state != GES_OK) return state;
-				/* save compressBuffer*/
-				state = addBuffer(std::move(compressBuffer));
-				if (state != GES_OK) return state;
+				/* set compressBuffer to gltf file*/
+
 			}
 		}
 	}
@@ -131,25 +136,25 @@ GE_STATE loadModel(const std::string& jData) {
 	std::string base_dir;
 	tinygltf::TinyGLTF loader;
 	GE_STATE state;
-	bool ret = loader.LoadASCIIFromString(&GVAR.model, GVAR.err, GVAR.warn, jData.c_str(), jData.size(), base_dir);
+	bool ret = loader.LoadASCIIFromString(GVAR.model.get(), GVAR.err, GVAR.warn, jData.c_str(), jData.size(), base_dir);
 	state = ret ? GES_OK : GES_ERR;
 	if (state != GES_OK)	return state;
 	/* It's invalid to compress a gltf file without any meshes */
-	size_t numOfMesh = GVAR.model.meshes.size();
+	size_t numOfMesh = GVAR.model->meshes.size();
 	if (numOfMesh <= 0) {
 		*GVAR.err = "No Mesh!";
 		state = GES_ERR;
 	}
-	GLTF_MESH_TO_OBJ(GVAR.model, GVAR.model.meshes[0].primitives[0], "from gltf.obj");
+	GLTF_MESH_TO_OBJ(*GVAR.model, GVAR.model->meshes[0].primitives[0], "from gltf.obj");
 	return state;
 }
 
 GE_STATE makeMesh(const tinygltf::Primitive& pri,
 	std::unique_ptr<draco::Mesh>& outputMesh,
-	MeshBufferHeader& header) {
+	EncodedMeshBufferDesc& header) {
 
-	size_t numOfFaces = tinygltf_wrapper::NumOfFaces(pri, GVAR.model);
-	size_t numOfPoints = tinygltf_wrapper::NumOfPoints(pri, GVAR.model);
+	size_t numOfFaces = tinygltf_wrapper::NumOfFaces(pri, *GVAR.model);
+	size_t numOfPoints = tinygltf_wrapper::NumOfPoints(pri, *GVAR.model);
 
 	outputMesh = std::make_unique<draco::Mesh>();
 	draco::Mesh& m = (*outputMesh);
@@ -162,7 +167,7 @@ GE_STATE makeMesh(const tinygltf::Primitive& pri,
 
 	/* processing index */
 	/* doesn't support sparse accessor */
-	tinygltf_wrapper::IndexContainer ic = tinygltf_wrapper::GetIndices(pri, GVAR.model);
+	tinygltf_wrapper::IndexContainer ic = tinygltf_wrapper::GetIndices(pri, *GVAR.model);
 	for (draco::FaceIndex fid(0); fid < numOfFaces; ++fid) {
 		draco::Mesh::Face face;
 		face[0] = draco::PointIndex(ic[fid.value() * 3 + 0]);
@@ -174,7 +179,7 @@ GE_STATE makeMesh(const tinygltf::Primitive& pri,
 	for (const auto& iter : pri.attributes) {
 		draco::GeometryAttribute::Type geoAttType;
 		draco::DataType geoDataType;
-		tinygltf::Accessor& attAcc = GVAR.model.accessors[iter.second];
+		tinygltf::Accessor& attAcc = GVAR.model->accessors[iter.second];
 		int8_t numOfCmp = 0;
 		if (!iter.first.compare("POSITION")) {
 			geoAttType = draco::GeometryAttribute::POSITION;
@@ -234,12 +239,12 @@ GE_STATE makeMesh(const tinygltf::Primitive& pri,
 				header.texcoordID = attID;
 				break;
 			}
-			tinygltf_wrapper::DataContainer dc = tinygltf_wrapper::DataContainer::Create(attAcc, GVAR.model);
+			tinygltf_wrapper::DataContainer dc = tinygltf_wrapper::DataContainer::Create(attAcc, *GVAR.model);
 			m.attribute(attID)->buffer()->Write(0, &dc.packBuffer()[0], dc.size() * dc.count());
 			m.SetAttributeElementType(attID, draco::MeshAttributeElementType::MESH_VERTEX_ATTRIBUTE);
 		}
 		else {
-			tinygltf_wrapper::DataContainer dc = tinygltf_wrapper::DataContainer::Create(attAcc, GVAR.model);
+			tinygltf_wrapper::DataContainer dc = tinygltf_wrapper::DataContainer::Create(attAcc, *GVAR.model);
 			std::unique_ptr<draco::PointAttribute> pntAtt = std::make_unique<draco::PointAttribute>();
 			pntAtt->Init(draco::GeometryAttribute::GENERIC, nullptr, numOfCmp, geoDataType, attAcc.normalized, 0, 0);
 			pntAtt->SetIdentityMapping();
@@ -261,8 +266,7 @@ GE_STATE makeMesh(const tinygltf::Primitive& pri,
 }
 
 GE_STATE compressMesh(std::unique_ptr<draco::Mesh>& inputMesh,
-	std::unique_ptr< std::vector<int8_t> >& outputBuffer,
-	MeshBufferHeader& header) {
+	std::unique_ptr< std::vector<uint8_t> >& outputBuffer) {
 	draco::Encoder edr;
 	edr.SetTrackEncodedProperties(true);
 	
@@ -274,21 +278,105 @@ GE_STATE compressMesh(std::unique_ptr<draco::Mesh>& inputMesh,
 		*GVAR.err = status.error_msg_string();
 		return GES_ERR;
 	}
-	outputBuffer = std::make_unique< std::vector<int8_t> >();
-	/* reserve space for bufferHeader, bufferHeader + bufferData */
-	size_t bufSize = eBuf.size() + sizeof(MeshBufferHeader);
+	outputBuffer = std::make_unique< std::vector<uint8_t> >();
+
+	size_t bufSize = eBuf.size();
 	(*outputBuffer).resize(bufSize);
-	int8_t* bufPtr = (*outputBuffer).data();
+	uint8_t* bufPtr = (*outputBuffer).data();
 
-	/* write header data into outputBuffer*/
-	header.bufferLength = bufSize;
-	memcpy_s(bufPtr, sizeof(MeshBufferHeader), &header, sizeof(MeshBufferHeader));
-	bufPtr += sizeof(MeshBufferHeader);
-
-	memcpy_s(bufPtr, eBuf.size(), eBuf.data(), eBuf.size());
+	memcpy_s(bufPtr, bufSize, eBuf.data(), bufSize);
 	MLOG("compressed size ", bufSize);
 	MLOG("compressed points ", edr.num_encoded_points());
 	MLOG("compressed faces ", edr.num_encoded_faces());
 	return GES_OK;
 }
 
+GE_STATE setDracoCompressPrimitive(tinygltf::Primitive& targetPri, tinygltf::Model& targetMod,
+	const EncodedMeshBufferDesc& desc, 
+	std::unique_ptr<std::vector<uint8_t> >& buf,
+	std::unique_ptr<std::vector<uint32_t> >& compressIndices) {
+	if (targetPri.mode != TINYGLTF_MODE_TRIANGLES) {
+		(*GVAR.err) = "currently just support compress triangle primitive";
+		return GES_ERR;
+	}
+	/* update attributes' accessor*/
+	for (const auto& att : targetPri.attributes)
+		/* WARNNING It can't tell the difference between pointing nothing or 0 bufferView */
+		targetMod.accessors[att.second].bufferView = 0;
+	/* update indices data */
+	tinygltf_wrapper::IndexContainer ic = tinygltf_wrapper::GetIndices(targetPri, targetMod);
+	tinygltf::Accessor& idxAcc = tinygltf_wrapper::IndexAccessor(targetPri, targetMod);
+	std::function<bool(uint32_t, uint32_t)> writeFunc = ic.WriteFunc(idxAcc.componentType);
+	for (uint32_t i = 0; i < idxAcc.count; ++i)
+		if (!writeFunc(i, (*compressIndices)[i])) {
+			*GVAR.err = "index's index is out of range!";
+			return GES_ERR;
+		}
+	/* add compressed buffer */
+	tinygltf::BufferView compressBufView;
+	compressBufView.byteLength = buf->size();
+	compressBufView.byteOffset = 0;
+	compressBufView.byteStride = 0;
+	compressBufView.target = TINYGLTF_TARGET_ELEMENT_ARRAY_BUFFER;
+	targetMod.buffers.push_back(tinygltf::Buffer());
+	compressBufView.buffer = targetMod.buffers.size() - 1;
+	tinygltf::Buffer& compressBuf = targetMod.buffers[compressBufView.buffer];
+	compressBuf.data.swap(*buf.get());
+	targetMod.bufferViews.push_back(compressBufView);
+	/* set extension */
+	tinygltf::Value::Object khr_draco_mesh_compression;
+	tinygltf::Value::Object ext_atts;
+	/* it must have position data */
+	ext_atts.insert(std::make_pair("POSITION", tinygltf::Value(static_cast<int>(desc.positionID))));
+	if (desc.normalID != 0xffu) ext_atts.insert(std::make_pair("NORMAL", tinygltf::Value(static_cast<int>(desc.normalID))));
+	if (desc.texcoordID != 0xffu) ext_atts.insert(std::make_pair("TEXCOORD_0", tinygltf::Value(static_cast<int>(desc.texcoordID))));
+	if (desc.tangentID != 0xffu) ext_atts.insert(std::make_pair("TANGENT", tinygltf::Value(static_cast<int>(desc.tangentID))));
+	if (desc.colorID != 0xffu) ext_atts.insert(std::make_pair("COLOR", tinygltf::Value(static_cast<int>(desc.colorID))));
+
+	khr_draco_mesh_compression.insert(std::make_pair("bufferView", tinygltf::Value(static_cast<int>(targetMod.bufferViews.size() - 1))));
+	khr_draco_mesh_compression.insert(std::make_pair("attributes", ext_atts));
+	
+	return GES_OK;
+}
+
+/* after adding compress data. we need to remove uncompress data */
+/* reorganize bufferViews and buffers */
+GE_STATE updateGLTFData(tinygltf::Model& model) {
+	/* find out which bufferViews need to be removed */
+	/* store bufferViews still being used */
+	std::vector<tinygltf::BufferView> nBufferViews;
+	/* store bufferViews new index */
+	std::map<int, int> nBufferViewMap;
+	for (auto& acc : model.accessors) {
+		int bfv = acc.bufferView;
+		const auto& iter = nBufferViewMap.find(bfv);
+		if (iter == nBufferViewMap.end()) {
+			/* need to copy this bufferView to nBufferViews */
+			nBufferViews.push_back(model.bufferViews[bfv]);
+			nBufferViewMap.insert(std::make_pair(bfv, nBufferViews.size() - 1));
+			acc.bufferView = nBufferViews.size() - 1;
+		}
+		else {
+			/* update accessor's bufferView */
+			acc.bufferView = iter->second;
+		}
+	}
+	model.bufferViews.swap(nBufferViews);
+	/* remove buffers no longer used */
+	/* when combine buffer data, be careful about the buffer alignment */
+	
+}
+
+/*
+foreach mesh
+	foreach primitive
+		if primitive is triangle then
+			compress result = compress primitive
+			delete primitive attributes accessors
+			modify primitive indices
+			add buffer conatin compress result
+			reconstruct buffers
+		end if
+	end for
+end for
+*/
