@@ -10,3 +10,4 @@
 /EncodeGLTF/EncodeGLTF/*.obj
 *.bin
 *.gltf
+*.glb

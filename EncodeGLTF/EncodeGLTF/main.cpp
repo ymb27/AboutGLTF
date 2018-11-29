@@ -2,7 +2,7 @@
 #include <iostream>
 #include <fstream>
 #include <assert.h>
-const char* FILE_PATH = "./ball.gltf";
+const char* FILE_PATH = "./MultiBall.gltf";
 
 class InputFileContainer {
 public:
@@ -51,8 +51,16 @@ int main() {
 	state = ec.EncodeFromAsciiMemory(
 		LoadStringFromFile(FILE_PATH)
 	);
-	if (state != GLTF_ENCODER::GES_OK)
+	if (state != GLTF_ENCODER::GES_OK) {
 		std::cout << ec.ErrorMsg() << std::endl;
+	}
+	else {
+		std::unique_ptr<std::vector<uint8_t> > compressedData = ec.Buffer();
+		std::ofstream outputFile;
+		outputFile.open("test.glb", std::ios::binary | std::ios::trunc);
+		outputFile.write(reinterpret_cast<char*>(compressedData->data()), compressedData->size());
+		outputFile.close();
+	}
 	system("pause");
 	return 0;
 }

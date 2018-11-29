@@ -66,10 +66,10 @@ namespace tinygltf_wrapper {
 
 	class DataContainer {
 	public:
-		static DataContainer Create(tinygltf::Accessor& acc, tinygltf::Model& m) {
+		static DataContainer Create(const tinygltf::Accessor& acc, tinygltf::Model& m) {
 			int byteOffset = acc.byteOffset;
 
-			tinygltf::BufferView& bufView = m.bufferViews[acc.bufferView];
+			const tinygltf::BufferView& bufView = m.bufferViews[acc.bufferView];
 			tinygltf::Buffer& buf = m.buffers[bufView.buffer];
 			
 			uint8_t size = ComponentSize(acc.componentType) * ComponentNum(acc.type);
@@ -170,7 +170,7 @@ namespace tinygltf_wrapper {
 	/* caller should guarantee that primitive has indices attribute */
 	inline IndexContainer GetIndices(const tinygltf::Primitive& p,
 		tinygltf::Model& m) {
-		tinygltf::Accessor& acc = IndexAccessor(p, m);
+		const tinygltf::Accessor& acc = IndexAccessor(p, m);
 		return IndexContainer(DataContainer::Create(acc, m));
 	}
 }

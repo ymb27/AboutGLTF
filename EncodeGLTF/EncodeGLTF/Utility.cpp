@@ -100,13 +100,13 @@ void GLTFMeshToOBJ(tinygltf::Model& m, tinygltf::Primitive& pte, const char* nam
 	oh.Finalize(name);
 }
 
-inline size_t indexAccessorID(tinygltf::Model& m, draco::Mesh& mesh) {
+inline size_t indexAccessorID(tinygltf::Model& m, const draco::Mesh& mesh) {
 	m.buffers.push_back(tinygltf::Buffer());
 	size_t idxBufID = m.buffers.size() - 1;
-	size_t bufSize = mesh.num_faces * sizeof(draco::Mesh::Face);
+	size_t bufSize = mesh.num_faces() * sizeof(draco::Mesh::Face);
 	m.buffers[idxBufID].data.resize(bufSize);
 	uint8_t* ptr = m.buffers[idxBufID].data.data();
-	for (draco::FaceIndex i(0); i < mesh.num_faces; ++i) {
+	for (draco::FaceIndex i(0); i < mesh.num_faces(); ++i) {
 		const draco::Mesh::Face& face = mesh.face(i);
 		memcpy_s(ptr, sizeof(face), &face, sizeof(face));
 		ptr += sizeof(face);
@@ -126,7 +126,7 @@ inline size_t indexAccessorID(tinygltf::Model& m, draco::Mesh& mesh) {
 	acc.byteOffset = 0;
 	/* since draco PointIndex is uint32_t */
 	acc.componentType = TINYGLTF_COMPONENT_TYPE_UNSIGNED_INT;
-	acc.count = mesh.num_faces * 3;
+	acc.count = mesh.num_faces() * 3;
 	acc.maxValues.push_back(mesh.num_points() - 1);
 	acc.minValues.push_back(0);
 	acc.normalized = false;
@@ -190,61 +190,61 @@ inline size_t attributeAccessorID(tinygltf::Model& m, draco::Mesh& mesh, uint32_
 	return m.accessors.size() - 1;
 }
 
-void DracoMeshToGLTFMesh(tinygltf::Model& m, tinygltf::Mesh& outputMesh,
-	draco::Mesh& mesh, const GLTF_ENCODER::EncodedMeshBufferDesc& header) {
-	/* There must be position data */
-	if (header.positionID == 0xffu) {
-		Test_Log("no position data!");
-		return;
-	}
-	/* TODO: currently ignore material. */
-	/* Here assume mesh's attribute data was not deduplicated */
-	tinygltf::Primitive pri;
-	pri.mode = TINYGLTF_MODE_TRIANGLES;
-	/* process indices */
-	pri.indices = indexAccessorID(m, mesh);
-	/* process position */
-	pri.attributes.insert(std::make_pair(std::string("POSITION"),
-		attributeAccessorID(m, mesh, header.positionID)));
-	/* process normal */
-	if (header.normalID != 0xffu) {
-		pri.attributes.insert(std::make_pair(std::string("NORMAL"),
-			attributeAccessorID(m, mesh, header.normalID)));
-	}
-	/* process texcoord */
-	if (header.texcoordID != 0xffu) {
-		pri.attributes.insert(std::make_pair(std::string("TEXCOORD_0"),
-			attributeAccessorID(m, mesh, header.texcoordID)));
-	}
-	/* process tangent */
-	if (header.tangentID != 0xffu) {
-		pri.attributes.insert(std::make_pair(std::string("TANGENT"),
-			attributeAccessorID(m, mesh, header.tangentID)));
-	}
-	outputMesh.primitives.push_back(pri);
-}
+//void DracoMeshToGLTFMesh(tinygltf::Model& m, tinygltf::Mesh& outputMesh,
+//	draco::Mesh& mesh, const GLTF_ENCODER::EncodedMeshBufferDesc& header) {
+//	/* There must be position data */
+//	if (header.positionID == 0xffu) {
+//		Test_Log("no position data!");
+//		return;
+//	}
+//	/* TODO: currently ignore material. */
+//	/* Here assume mesh's attribute data was not deduplicated */
+//	tinygltf::Primitive pri;
+//	pri.mode = TINYGLTF_MODE_TRIANGLES;
+//	/* process indices */
+//	pri.indices = indexAccessorID(m, mesh);
+//	/* process position */
+//	pri.attributes.insert(std::make_pair(std::string("POSITION"),
+//		attributeAccessorID(m, mesh, header.positionID)));
+//	/* process normal */
+//	if (header.normalID != 0xffu) {
+//		pri.attributes.insert(std::make_pair(std::string("NORMAL"),
+//			attributeAccessorID(m, mesh, header.normalID)));
+//	}
+//	/* process texcoord */
+//	if (header.texcoordID != 0xffu) {
+//		pri.attributes.insert(std::make_pair(std::string("TEXCOORD_0"),
+//			attributeAccessorID(m, mesh, header.texcoordID)));
+//	}
+//	/* process tangent */
+//	if (header.tangentID != 0xffu) {
+//		pri.attributes.insert(std::make_pair(std::string("TANGENT"),
+//			attributeAccessorID(m, mesh, header.tangentID)));
+//	}
+//	outputMesh.primitives.push_back(pri);
+//}
 
-GE_STATE decompress(const int8_t* data) {
-	GE_STATE state = GES_OK;
-	EncoderHeader eh;
-	memcpy_s(&eh, sizeof(EncoderHeader),
-		data, sizeof(EncoderHeader));
-	const int8_t* dataPtr = data;
-	/* decompressEachBuffer */
-	dataPtr += eh.headerSize;
-	char outputName[] = "decompressed0.obj";
-	for (uint32_t i = 0; i < eh.numOfbuffer; ++i) {
-		EncodedMeshBufferDesc bh;
-		memcpy_s(&bh, sizeof(EncodedMeshBufferDesc),
-			dataPtr, sizeof(EncodedMeshBufferDesc));
-		state = decompressMesh(dataPtr + bh.headerSize, bh.bufferLength - sizeof(EncodedMeshBufferDesc));
-		if (state != GES_OK) { return state; }
-		outputName[12] = i + 'A';
-		DracoMeshToOBJ(*T_GVAR.meshPtr, outputName);
-		dataPtr += bh.bufferLength;
-	}
-	return state;
-}
+//GE_STATE decompress(const int8_t* data) {
+//	GE_STATE state = GES_OK;
+//	EncoderHeader eh;
+//	memcpy_s(&eh, sizeof(EncoderHeader),
+//		data, sizeof(EncoderHeader));
+//	const int8_t* dataPtr = data;
+//	/* decompressEachBuffer */
+//	dataPtr += eh.headerSize;
+//	char outputName[] = "decompressed0.obj";
+//	for (uint32_t i = 0; i < eh.numOfbuffer; ++i) {
+//		EncodedMeshBufferDesc bh;
+//		memcpy_s(&bh, sizeof(EncodedMeshBufferDesc),
+//			dataPtr, sizeof(EncodedMeshBufferDesc));
+//		state = decompressMesh(dataPtr + bh.headerSize, bh.bufferLength - sizeof(EncodedMeshBufferDesc));
+//		if (state != GES_OK) { return state; }
+//		outputName[12] = i + 'A';
+//		DracoMeshToOBJ(*T_GVAR.meshPtr, outputName);
+//		dataPtr += bh.bufferLength;
+//	}
+//	return state;
+//}
 
 GE_STATE decompressMesh(
 	const int8_t* data,

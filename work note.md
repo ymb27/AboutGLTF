@@ -14,9 +14,8 @@
 
 ### 任务情况
 
-* [x] 解析gltf，提取模型bin数据
-
-  * 可以直接利用tinygltf读取其中所有属性的内容
+* [ ] 解析gltf，提取模型bin数据
+  * [ ] 不读入图片数据，除非源文件已经以data-uri的方式进行存储
 * [ ] 生成draco对象并进行压缩
 
   * [x] 提取gltf中的triangle primitive手动构造draco::mesh
@@ -25,9 +24,13 @@
     * [x] 位置信息
     * [x] 法线信息
     * [ ] 贴图坐标信息(第一套)
-  * [x] 读取多个triangle primitive进行压缩，并合并到一个buffer中
-  * [ ] 处理非triangle primitive
-  * [ ] c++测试从draco::mesh还原gltf
+  * [x] 读取多个triangle primitive进行压缩
+  * [x] 处理非triangle primitive
+    * 对非triangle primitive不进行处理
+  * [x] c++测试从draco::mesh还原gltf
+  * [ ] 输出glb流(非文件)，需要修改tinygltf
+    * [ ] 处理图片输出问题，图片存储情况维持原样(uri的保持原uri，data-uri的依然是data-uri)
+  * [ ] 对glb流的json块进行gz压缩
 * [ ] linux下编译测试
 * [ ] 前端包开发
 
@@ -35,11 +38,10 @@
 
 * [ ] 内存占用大(压缩9M数据，运行时内存占用30M)
 
-* [ ] 压缩率低(当前为默认设置，仅80%)
+* [x] 压缩率低(当前为默认设置，仅80%)
 
-  优化可能——分析模型数据，设置合适的AttributeQuantization；
-
-  去除重复的属性数据，但会降低解压时的效率，增加解压过程的内存占用
+  * 根据primitive各个attribute的min和max值，设置量化的范围
+  * 当前压缩率位20%
 
 * [ ] 压缩速度慢(当前为默认设置)
 

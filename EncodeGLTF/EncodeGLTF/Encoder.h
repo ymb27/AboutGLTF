@@ -17,11 +17,9 @@ namespace GLTF_ENCODER {
 	};
 
 	struct EncodedMeshBufferDesc {
-		const uint8_t headerSize = sizeof(EncodedMeshBufferDesc);
-		uint32_t bufferLength = 0; /* length of the buffer: header + data */
 		uint8_t positionID = 0xffu;
 		uint8_t normalID = 0xffu;
-		uint8_t texcoordID = 0xffu;
+		uint8_t texcoord0ID = 0xffu;
 		uint8_t tangentID = 0xffu;
 		uint8_t colorID = 0xffu;
 	};
@@ -30,22 +28,19 @@ namespace GLTF_ENCODER {
 	public:
 		Encoder() = default;
 		~Encoder() = default;
-
+		/* call Buffer after invoking this function */
+		/* or m_outputBuf data will lost after invoking this function again*/
 		GE_STATE EncodeFromAsciiMemory(const std::string&);
 		const std::string& ErrorMsg() const;
 		const std::string& WarnMsg() const;
 		/* !WARNING! */
 		/* m_outbuffer won't have NO ownership of the vector(or the buffer)*/
-		std::unique_ptr< std::vector<int8_t> > Buffer();
+		std::unique_ptr< std::vector<uint8_t> > Buffer() {
+			return std::move(m_outputBuf);
+		}
 	private:
-		/* merge all buffers in m_buffers into m_outBuffer and add a header */
-		GE_STATE finalize();
-		/* add a buffer into m_buffers and add a sub header by the way */
-		GE_STATE addBuffer(std::unique_ptr<std::vector<int8_t> > inputBuffer);
 		/* encoded result */
-		std::unique_ptr< std::vector<int8_t> > m_outBuffer;
-		/* store each compressed buffer */
-		std::vector< std::unique_ptr<std::vector<int8_t> > > m_buffers;
+		std::unique_ptr< std::vector<uint8_t> > m_outputBuf;
 		/* last error message */
 		std::string m_err;
 		/* last warning message */

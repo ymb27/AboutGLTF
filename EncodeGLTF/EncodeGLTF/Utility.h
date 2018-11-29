@@ -177,6 +177,7 @@ void DracoMeshToOBJ(draco::Mesh& mesh, const char* outputName);
 namespace tinygltf {
 	class Model;
 	struct Primitive;
+	struct Mesh;
 }
 void GLTFMeshToOBJ(tinygltf::Model& m, tinygltf::Primitive& pte, const char* name);
 void DracoMeshToGLTFMesh(tinygltf::Model& m, tinygltf::Mesh	& outputMesh, 
