@@ -2,7 +2,7 @@
 #include <iostream>
 #include <fstream>
 #include <assert.h>
-const char* FILE_PATH = "./MultiBall.gltf";
+const char* FILE_PATH = "./glTF/Sponza.gltf";
 
 class InputFileContainer {
 public:
@@ -45,7 +45,7 @@ std::string LoadStringFromFile(std::string path) {
 	return ret;
 }
 
-int main() {
+int main(int argc, char* argv[]) {
 	GLTF_ENCODER::Encoder ec;
 	GLTF_ENCODER::GE_STATE state;
 	state = ec.EncodeFromAsciiMemory(

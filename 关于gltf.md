@@ -28,6 +28,10 @@ gltf文档中可以包含多个节点，节点的类型由其包含的属性决�
 
 *缓冲区作为内存片段，有内存对齐，大小端等内存布局问题需要注意。*
 
+可以添加一个GLB缓冲区，即缓冲的内容存储在GLB文件中的binary chunk内。该缓冲区对象不可以有uri属性，且该缓冲区对象必须在Buffers数组的第一个位置。
+
+缓冲区理论上可以任意大，但是json parser对整数值得解析是有上限的，所以buffer.byteLength属性大小有限制，进而导致实际存储空间大小有限制。GLB chunk的大小不超过4GB(不包含4GB)。
+
 #### 5. BufferViewers
 
 一个二进制缓冲区可以同时包含多种数据内容(为了压缩空间)，Viewer就是对缓冲区信息加以分段的描述性对象。每个viewer都规定其负责的数据片段属于顶点属性数据或者索引数据。
@@ -59,11 +63,13 @@ glb是gltf的二进制形式。由三部分组成，分别是header, json chunk�
 
 ### 3. binary chunk
 
-gltf原buffer中包含的数据均可放在此处；binary chunk可以有多个
+gltf原buffer中包含的数据均可放在此处；binary chunk最多只能有1个
 
 ### chunk
 
-chunk的格式较为统一，length说明该chunk的大小，单位字节；type仅有两种，一种是json chunk，另一种是binary chunk，不是这两种类型的chunk，默认实现是对其进行忽略；data数组则存储实际二进制数据。
+chunk的格式较为统一，length说明该chunk的data部分的大小(加上对齐产生的补充字节)，单位字节；type仅有两种，一种是json chunk，另一种是binary chunk，不是这两种类型的chunk，默认实现是对其进行忽略；data数组则存储实际二进制数据。
+
+需要注意，chunk块的开始以及结束位置必须是4字节对齐的。chunk的开头有8个字节，而glb header本身是12个字节，所以实际上我们需要让chunk data部分进行4字节对齐。若chunk data = 11，则我们需要让填充chunk data至12字节。json chunk需要填充' '(空格号)，binary chunk需要填充(0x00)。默认是在末尾添加。
 
 ## Draco的扩展
 

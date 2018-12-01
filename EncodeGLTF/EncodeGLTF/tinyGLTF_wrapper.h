@@ -1,5 +1,10 @@
 ﻿#ifndef TINYGLTF_WRAPPER
 #define TINYGLTF_WRAPPER
+/* enable modifications for this project */
+#define TINYGLTF_USER_EXT
+/* to reduce memory footprint, prevent load image data from file */
+/* since this library won't process this data */
+#define TINYGLTF_NO_EXTERNAL_IMAGE
 #include <tinygltf/tiny_gltf.h>
 #include <functional>
 

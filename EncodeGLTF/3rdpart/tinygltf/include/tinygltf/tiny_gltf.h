@@ -646,9 +646,11 @@ struct Primitive {
   // "TANGENT"] pointing
   // to their corresponding accessors
   Value extras;
+#ifdef TINYGLTF_USER_EXT
   /* !WARNNING! Custom modified! It's different from origin version */
   /* need to support extensions */
   Value extensions;
+#endif // TINYGLTF_USER_EXT
 
   Primitive() {
     material = -1;
@@ -930,12 +932,13 @@ class TinyGLTF {
                             bool prettyPrint,
                             bool writeBinary);
 
+#ifdef TINYGLTF_USER_EXT
   ///
   /// Write glb to buffer
   ///
   bool WriteGltfSceneToBuffer(Model* model, std::vector<uint8_t>& outputBuffer,
-	  bool embedImages,
 	  bool embedBuffers);
+#endif TINYGLTF_USER_EXT
 
   ///
   /// Set callback to use for loading image data
@@ -996,6 +999,67 @@ class TinyGLTF {
 #endif
   void *write_image_user_data_ = reinterpret_cast<void *>(&fs);
 };
+
+#ifdef TINYGLTF_USER_EXT
+// define glb file header struct
+struct GLBHeader {
+	const uint32_t magic = 0x46546C67u;
+	const uint32_t version = 2;
+	const uint32_t length;
+	GLBHeader(const uint32_t length) : length(length) {}
+};
+// glb file chunk header
+struct GLBChunkHeader {
+	uint32_t length;
+	uint32_t type;
+};
+
+#define TINYGLTF_CHUNK_TYPE_JSON 0x4E4F534Au
+#define TINYGLTF_CHUNK_TYEP_BINARY 0x004E4942u
+
+void SetupGlbFileBuffer(std::vector<uint8_t>& outputBufer, 
+	const uint8_t* jsonData, uint32_t jsonDataLength,
+	const uint8_t* binaryData = nullptr, uint32_t binaryDataLength = 0) {
+	uint8_t jsonPadding = 4 - (jsonDataLength + 8) % 4;
+	uint8_t binPadding = 4 - (binaryDataLength + 8) % 4;
+	GLBHeader header(sizeof(GLBHeader) + 
+		jsonDataLength + 8 + jsonPadding + 
+		binaryDataLength + 8 + binPadding);
+
+	outputBufer.resize(header.length);
+	uint8_t* outputBufPtr = outputBufer.data();
+	// header
+	memcpy_s(outputBufPtr, sizeof(GLBHeader), &header, sizeof(GLBHeader));
+	outputBufPtr += sizeof(GLBHeader);
+	// json chunk
+	GLBChunkHeader chunkHeader;
+	chunkHeader = { jsonDataLength + jsonPadding, TINYGLTF_CHUNK_TYPE_JSON };
+	memcpy_s(outputBufPtr, sizeof(GLBChunkHeader), &chunkHeader, sizeof(GLBChunkHeader));
+	outputBufPtr += sizeof(GLBChunkHeader);
+	memcpy_s(outputBufPtr, jsonDataLength, jsonData, jsonDataLength);
+	outputBufPtr += jsonDataLength;
+	if (jsonPadding > 0) {
+		std::vector<char> jsonPaddingValue(jsonPadding, ' ');
+		memcpy_s(outputBufPtr, jsonPaddingValue.size(), 
+			jsonPaddingValue.data(), jsonPaddingValue.size());
+		outputBufPtr += jsonPadding;
+	}
+	// binary chunk
+	if (binaryData && binaryDataLength != 0) {
+		chunkHeader = { binaryDataLength + binPadding, TINYGLTF_CHUNK_TYEP_BINARY };
+		memcpy_s(outputBufPtr, sizeof(GLBChunkHeader), &chunkHeader, sizeof(GLBChunkHeader));
+		outputBufPtr += sizeof(GLBChunkHeader);
+		memcpy_s(outputBufPtr, binaryDataLength, binaryData, binaryDataLength);
+		outputBufPtr += binaryDataLength;
+		if (binPadding > 0) {
+			std::vector<uint8_t> binPaddingValue(binPadding, 0);
+			memcpy_s(outputBufPtr, binPaddingValue.size(),
+				binPaddingValue.data(), binPaddingValue.size());
+		}
+	}
+}
+
+#endif // TINYGLTF_USER_EXT
 
 #ifdef __clang__
 #pragma clang diagnostic pop  // -Wpadded
@@ -2450,6 +2514,12 @@ static bool ParseImage(Image *image, std::string *err, std::string *warn,
 
   std::string uri;
   std::string tmp_err;
+#ifdef TINYGLTF_USER_EXT
+  std::string mime_type;
+  ParseStringProperty(&mime_type, err, o, "mimeType", false);
+  if (!mime_type.empty())
+	  image->mimeType = mime_type;
+#endif
   if (!ParseStringProperty(&uri, &tmp_err, o, "uri", true)) {
     if (err) {
       (*err) += "Failed to parse `uri` for Image.\n";
@@ -2460,6 +2530,12 @@ static bool ParseImage(Image *image, std::string *err, std::string *warn,
   std::vector<unsigned char> img;
 
   if (IsDataURI(uri)) {
+#ifdef TINYGLTF_USER_EXT
+	  /* WARNNING! Won't load any image data into image->image */
+	  /* since i don't need to process image data */
+	  image->uri = uri;
+	  return true;
+#endif // TINYGLTF_USER_EXT
     if (!DecodeDataURI(&img, image->mimeType, uri, 0, false)) {
       if (err) {
         (*err) += "Failed to decode 'uri' for image parameter.\n";
@@ -4151,9 +4227,11 @@ static void SerializeExtensionMap(ExtensionMap &extensions, json &o) {
 }
 
 static void SerializeGltfAccessor(Accessor &accessor, json &o) {
+#ifdef TINYGLTF_USER_EXT
 	/* WARNNING! bufferView is not necessary. So when it's set to -1, it means ignore this property */
-  if (accessor.bufferView != -1)
-	SerializeNumberProperty<int>("bufferView", accessor.bufferView, o);
+	if (accessor.bufferView != -1)
+		SerializeNumberProperty<int>("bufferView", accessor.bufferView, o);
+#endif // TINYGLTF_USER_EXT
 
   if (accessor.byteOffset != 0.0)
     SerializeNumberProperty<int>("byteOffset", int(accessor.byteOffset), o);
@@ -4263,6 +4341,10 @@ static void SerializeGltfAsset(Asset &asset, json &o) {
 
 static void SerializeGltfBuffer(Buffer &buffer, json &o) {
   SerializeNumberProperty("byteLength", buffer.data.size(), o);
+#ifdef TINYGLTF_USER_EXT
+  // for GLB buffer, uri must not be defined
+  if (!buffer.uri.empty())
+#endif // TINYGLTF_USER_EXT
   SerializeGltfBufferData(buffer.data, o);
 
   if (buffer.name.size()) SerializeStringProperty("name", buffer.name, o);
@@ -4393,11 +4475,12 @@ static void SerializeGltfMesh(Mesh &mesh, json &o) {
     if (gltfPrimitive.extras.Type() != NULL_TYPE) {
       SerializeValue("extras", gltfPrimitive.extras, primitive);
     }
+#ifdef TINYGLTF_USER_EXT
 	/* !WARNNING! modified to support extension's serialization */
 	if (gltfPrimitive.extensions.Type() != NULL_TYPE) {
 		SerializeValue("extensions", gltfPrimitive.extensions, primitive);
 	}
-
+#endif // TINYGLTF_USER_EXT
     primitives.push_back(primitive);
   }
 
@@ -4839,8 +4922,8 @@ bool TinyGLTF::WriteGltfSceneToFile(Model *model, const std::string &filename,
   return true;
 }
 
+#ifdef TINYGLTF_USER_EXT
 bool TinyGLTF::WriteGltfSceneToBuffer(Model* model, std::vector<uint8_t>& outputBuffer,
-	bool embedImages = false,
 	bool embedBuffers = true) {
 	json output;
 
@@ -4903,14 +4986,24 @@ bool TinyGLTF::WriteGltfSceneToBuffer(Model* model, std::vector<uint8_t>& output
 	}
 
 	// IMAGES
+	// WARNNING! here just serialize image object's property
+	// won't make any image file
 	if (model->images.size()) {
 		json images;
-		for (unsigned int i = 0; i < model->images.size(); ++i) {
+		for (Image& img : model->images) {
 			json image;
-			std::string baseDir = "./";
-			UpdateImageObject(model->images[i], baseDir, int(i), false,
-				&this->WriteImageData, this->write_image_user_data_);
-			SerializeGltfImage(model->images[i], image);
+			// if img has bufferView property
+			if (img.bufferView != -1) 
+				SerializeNumberProperty("bufferView", img.bufferView, image);
+			else
+				SerializeStringProperty("uri", img.uri, image);
+
+			if (!img.mimeType.empty())
+				SerializeStringProperty("mimeType", img.mimeType, image);
+			if (img.name.size()) SerializeStringProperty("name", img.name, image);
+			if (img.extras.Type() != NULL_TYPE)
+				SerializeValue("extras", img.extras, image);
+			SerializeExtensionMap(img.extensions, image);
 			images.push_back(image);
 		}
 		output["images"] = images;
@@ -5038,47 +5131,13 @@ bool TinyGLTF::WriteGltfSceneToBuffer(Model* model, std::vector<uint8_t>& output
 		SerializeValue("extras", model->extras, output);
 	}
 
-	const std::string& binaryData = output.dump();
-
-	const std::string header = "glTF";
-	const int version = 2;
-	const int padding_size = binaryData.size() % 4;
-
-	// 12 bytes for header, JSON content length, 8 bytes for JSON chunk info, padding
-	const int length = 12 + 8 + binaryData.size() + padding_size;
-	outputBuffer.resize(length);
-	uint8_t* outputBufferPtr = outputBuffer.data();
-	memcpy_s(outputBufferPtr, header.size(), header.c_str(), header.size());
-	outputBufferPtr += header.size();
-
-	memcpy_s(outputBufferPtr, sizeof(version), &version, sizeof(version));
-	outputBufferPtr += sizeof(version);
-
-	memcpy_s(outputBufferPtr, sizeof(length), &length, sizeof(length));
-	outputBufferPtr += sizeof(length);
-
-	// JSON chunk info, then JSON data
-	const int model_length = binaryData.size() + padding_size;
-	const int model_format = 0x4E4F534A;
-
-	memcpy_s(outputBufferPtr, sizeof(model_length), &model_length, sizeof(model_length));
-	outputBufferPtr += sizeof(model_length);
-
-	memcpy_s(outputBufferPtr, sizeof(model_format), &model_format, sizeof(model_format));
-	outputBufferPtr += sizeof(model_format);
-
-	memcpy_s(outputBufferPtr, binaryData.size(), binaryData.c_str(), binaryData.size());
-	outputBufferPtr += binaryData.size();
-
-	// Chunk must be multiplies of 4, so pad with spaces
-	if (padding_size > 0) {
-		const std::string padding = std::string(padding_size, ' ');
-		memcpy_s(outputBufferPtr, padding.size(), padding.c_str(), padding.size());
-	}
-
+	// initialize glb file
+	const std::string&& jsonData = output.dump();
+	SetupGlbFileBuffer(outputBuffer, reinterpret_cast<const uint8_t*>(jsonData.c_str()), jsonData.size(),
+		model->buffers[0].data.data(), model->buffers[0].data.size());
 	return true;
 }
-
+#endif // TINYGLTF_USER_EXT
 }  // namespace tinygltf
 
 #ifdef __clang__

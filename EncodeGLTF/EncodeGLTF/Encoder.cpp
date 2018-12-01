@@ -66,6 +66,7 @@ inline GE_STATE setDracoCompressPrimitive(tinygltf::Primitive& pri, tinygltf::Mo
 	const EncodedMeshBufferDesc& desc, std::set<int>& ignoreBufferViewAccessorID);
 /* update gltf file, reorgnize its bufferViews and buffers */
 inline GE_STATE updateGLTFData(tinygltf::Model& targetMod, std::set<int>& ignoreBufferViewAccessorID);
+/* append draco compressed data to Gltf buffers */
 inline GE_STATE appendCompressBufferToGLTF(tinygltf::Model& gltf,
 	std::vector<tinygltf::Primitive*>& pris,
 	std::vector<std::unique_ptr<std::vector<uint8_t> > >& bufs);
@@ -129,7 +130,7 @@ const std::string& Encoder::WarnMsg() const { return m_warn; }
 
 /* private helper functions */
 GE_STATE loadModel(const std::string& jData, tinygltf::Model* gltf) {
-	std::string base_dir = "./glTF";
+	std::string base_dir = "";
 	tinygltf::TinyGLTF loader;
 	GE_STATE state;
 	bool ret = loader.LoadASCIIFromString(gltf, GVAR.err, GVAR.warn, jData.c_str(), jData.size(), base_dir);
@@ -333,11 +334,10 @@ GE_STATE setDracoCompressPrimitive(tinygltf::Primitive& pri, tinygltf::Model& gl
 	}
 	/* update attributes' accessor*/
 	for (const auto& att : pri.attributes)
-		/* -1 means remove or ignore bufferView property */
-		//gltf.accessors[att.second].bufferView = -1;
+		/* record that this attribute accessor won't need */
+		/* original bufferView(bufferData) any more */
 		ignoreBufferViewAccessorID.insert(att.second);
-	/* update indices data */
-	//tinygltf_wrapper::IndexAccessor(pri, gltf).bufferView = -1;
+	/* record that original index data is deprecated */
 	ignoreBufferViewAccessorID.insert(pri.indices);
 
 	/* set extension */
@@ -359,49 +359,68 @@ GE_STATE setDracoCompressPrimitive(tinygltf::Primitive& pri, tinygltf::Model& gl
 	return GES_OK;
 }
 
-/* after adding compress data. we need to remove uncompress data */
-/* reorganize bufferViews and buffers */
-GE_STATE updateGLTFData(tinygltf::Model& model, std::set<int>& ignoreBufferViewAccessorID) {
-	for (int accID : ignoreBufferViewAccessorID) {
-		model.accessors[accID].bufferView = -1;
-	}
-	/* find out which bufferViews need to be removed */
-	/* store bufferViews still being used */
-	std::vector<tinygltf::BufferView> nBufferViews;
-	/* store bufferViews new index */
-	std::map<int, int> nBufferViewMap;
-	for (auto& acc : model.accessors) {
+/* traverse object that need to use bufferView. if an object still use a bufferView */
+/* (Its bufferView property will greater than or equal to 0) */
+/* and such bufferView has been copied into |nBufferViews|, */
+/* or push back such bufferView into |nBufferViews|. Using its new index */
+/* to replace accessor's original bufferView property. Recording */
+/* relationship between original index and new index in |nBufferViewMap| */
+template<typename ObjectContainer>
+inline void updateBufferViews(ObjectContainer& container,
+	std::vector<tinygltf::BufferView>& nBufferViews,
+	std::map<int, int>& nBufferViewMap,
+	tinygltf::Model& model) {
+	for (auto& obj : container) {
 		/* bufferView = -1 means it doesn't need bufferView */
-		if (acc.bufferView == -1) continue;
-		int bfv = acc.bufferView;
+		if (obj.bufferView == -1) continue;
+		int bfv = obj.bufferView;
 		const auto& iter = nBufferViewMap.find(bfv);
 		if (iter == nBufferViewMap.end()) {
 			/* need to copy this bufferView to nBufferViews */
 			nBufferViews.push_back(model.bufferViews[bfv]);
 			nBufferViewMap.insert(std::make_pair(bfv, nBufferViews.size() - 1));
-			acc.bufferView = nBufferViews.size() - 1;
+			obj.bufferView = nBufferViews.size() - 1;
 		}
 		else {
 			/* update accessor's bufferView */
-			acc.bufferView = iter->second;
+			obj.bufferView = iter->second;
 		}
 	}
+}
+/* after adding compress data. we need to remove uncompress data */
+/* reorganize bufferViews and buffers */
+GE_STATE updateGLTFData(tinygltf::Model& model, std::set<int>& ignoreBufferViewAccessorID) {
+	for (int accID : ignoreBufferViewAccessorID) {
+		/* set bufferView to -1, and tinygltf won't serialize this property */
+		model.accessors[accID].bufferView = -1;
+	}
+	/* find out which bufferViews need to be removed */
+	/* store bufferViews still being used */
+	std::vector<tinygltf::BufferView> nBufferViews;
+	/* store the relationship between original BufferViewID and new BufferViewID */
+	std::map<int, int> nBufferViewMap;
+
+	updateBufferViews(model.images, nBufferViews, nBufferViewMap, model);
+	updateBufferViews(model.accessors, nBufferViews, nBufferViewMap, model);
+
 	model.bufferViews.swap(nBufferViews);
 	/* remove buffers no longer used */
 	/* when combine buffer data, be careful about the buffer alignment */
 	/* but now i just split them */
 	std::vector<tinygltf::Buffer> nBuffers;
-	for (auto& iter : model.bufferViews) {
+	/* reserve the first buffer for GLB buffer */
+	nBuffers.push_back(tinygltf::Buffer());
+	for (auto& bufView : model.bufferViews) {
 		nBuffers.push_back(tinygltf::Buffer());
-		iter.buffer = nBuffers.size() - 1;
-		tinygltf::Buffer& nBuf = nBuffers[iter.buffer];
-		nBuf.data.resize(iter.byteLength);
+		bufView.buffer = nBuffers.size() - 1;
+		tinygltf::Buffer& nBuf = nBuffers[bufView.buffer];
+		nBuf.data.resize(bufView.byteLength);
 		uint8_t* nDataPtr = nBuf.data.data();
 
-		tinygltf::Buffer& buf = model.buffers[iter.buffer];
+		tinygltf::Buffer& buf = model.buffers[bufView.buffer];
 		const uint8_t* dataPtr = buf.data.data();
-		memcpy_s(nDataPtr, iter.byteLength, dataPtr + iter.byteOffset, iter.byteLength);
-		iter.byteOffset = 0;
+		memcpy_s(nDataPtr, bufView.byteLength, dataPtr + bufView.byteOffset, bufView.byteLength);
+		bufView.byteOffset = 0;
 	}
 	model.buffers.swap(nBuffers);
 	return GES_OK;
@@ -410,23 +429,33 @@ GE_STATE updateGLTFData(tinygltf::Model& model, std::set<int>& ignoreBufferViewA
 inline GE_STATE appendCompressBufferToGLTF(tinygltf::Model& gltf,
 	std::vector<tinygltf::Primitive*>& pris,
 	std::vector<std::unique_ptr<std::vector<uint8_t> > >& bufs) {
+	/* cout the total size of memory storing all compressed data */
+	size_t compressedBufSize = 0;
+	for (const auto& compressedBufs : bufs)
+		compressedBufSize += compressedBufs->size();
+	gltf.buffers[0].data.resize(compressedBufSize);
+
+	/* current glb buffer offset */
+	size_t currentByteOffset = 0;
 	for (size_t i = 0; i < pris.size(); ++i) {
 		tinygltf::Primitive* p = pris[i];
 		std::unique_ptr<std::vector<uint8_t> > buf = std::move(bufs[i]);
-		tinygltf::Value::Object& exts = p->extensions.Get<tinygltf::Value::Object>();
-		tinygltf::Value::Object& khr_ext = exts["KHR_draco_mesh_compression"].Get<tinygltf::Value::Object>();
-		int& bufView = khr_ext["bufferView"].Get<int>();
-		
-		/* add compressed buffer */
+		/* initialize compressed buffer view*/
 		tinygltf::BufferView compressBufView;
 		compressBufView.byteLength = buf->size();
-
-		gltf.buffers.push_back(tinygltf::Buffer());
-		compressBufView.buffer = gltf.buffers.size() - 1;
-		gltf.buffers[compressBufView.buffer].data.swap(*buf.get());
+		compressBufView.byteOffset = currentByteOffset;
+		compressBufView.buffer = 0;
 		gltf.bufferViews.push_back(compressBufView);
 
-		bufView = gltf.bufferViews.size() - 1;
+		tinygltf::Value::Object& exts = p->extensions.Get<tinygltf::Value::Object>();
+		tinygltf::Value::Object& khr_ext = exts["KHR_draco_mesh_compression"].Get<tinygltf::Value::Object>();
+		khr_ext["bufferView"].Get<int>() = gltf.bufferViews.size() - 1;
+		
+		/* update glb buffer */
+		memcpy_s(gltf.buffers[0].data.data() + currentByteOffset, buf->size(),
+			buf->data(), buf->size());
+		
+		currentByteOffset += buf->size();
 	}
 	return GES_OK;
 }
