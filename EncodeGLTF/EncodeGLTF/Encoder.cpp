@@ -27,6 +27,7 @@ using namespace GLTF_ENCODER;
 #define DECOMPRESS(data) decompress(data)
 #define DECOMPRESS_MESH(data, size) decompressMesh(data, size)
 #define ANALYSE_DECOMPRESS() analyseDecompressMesh()
+extern std::string GBaseDir;
 #else
 #define MLOG(...)
 #define DRACO_MESH_TO_OBJ(mesh, name)
@@ -112,12 +113,7 @@ GE_STATE Encoder::EncodeFromAsciiMemory(const std::string& jData) {
 	appendCompressBufferToGLTF(gltf, compressedPrimitives, compressedDatas);
 	gltf.extensionsRequired.push_back("KHR_draco_mesh_compression");
 	gltf.extensionsUsed.push_back("KHR_draco_mesh_compression");
-	/* merge compressBuffer into m_outBuffer */
-	//state = finalize();
-	//if (state != GES_OK) return state;
 
-	//state = DECOMPRESS(m_outBuffer->data());
-	//if (state != GES_OK) return state;
 	m_outputBuf = std::make_unique<std::vector<uint8_t> >();
 	tinygltf::TinyGLTF writer;
 	writer.WriteGltfSceneToBuffer(&gltf, *m_outputBuf);
@@ -130,7 +126,11 @@ const std::string& Encoder::WarnMsg() const { return m_warn; }
 
 /* private helper functions */
 GE_STATE loadModel(const std::string& jData, tinygltf::Model* gltf) {
+#ifdef TEST_COMPRESS
+	std::string base_dir = GBaseDir;
+#else /* TEST_COMPRESS */
 	std::string base_dir = "";
+#endif /* TEST_COMPRESS */
 	tinygltf::TinyGLTF loader;
 	GE_STATE state;
 	bool ret = loader.LoadASCIIFromString(gltf, GVAR.err, GVAR.warn, jData.c_str(), jData.size(), base_dir);
@@ -303,7 +303,9 @@ GE_STATE compressMesh(std::unique_ptr<draco::Mesh>& inputMesh,
 	std::unique_ptr< std::vector<uint8_t> >& outputBuffer) {
 	/* General Setting */
 	encoder.SetAttributeQuantization(draco::GeometryAttribute::GENERIC, 12);
+#ifdef TEST_COMPRESS
 	encoder.SetTrackEncodedProperties(true);
+#endif /* TEST_COMPRESS */
 
 	draco::EncoderBuffer eBuf;
 	draco::Status status;
@@ -459,17 +461,3 @@ inline GE_STATE appendCompressBufferToGLTF(tinygltf::Model& gltf,
 	}
 	return GES_OK;
 }
-
-/*
-foreach mesh
-	foreach primitive
-		if primitive is triangle then
-			compress result = compress primitive
-			delete primitive attributes accessors
-			modify primitive indices
-			add buffer conatin compress result
-			reconstruct buffers
-		end if
-	end for
-end for
-*/

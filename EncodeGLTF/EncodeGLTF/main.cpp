@@ -2,8 +2,8 @@
 #include <iostream>
 #include <fstream>
 #include <assert.h>
-const char* FILE_PATH = "./glTF/Sponza.gltf";
 
+std::string GBaseDir;
 class InputFileContainer {
 public:
 	InputFileContainer(const char* name, std::ios::_Openmode mode = std::ios::in) {
@@ -44,12 +44,20 @@ std::string LoadStringFromFile(std::string path) {
 	std::string ret = std::string(&chars[0], chars.size());
 	return ret;
 }
-
+/* refer to TinyGltf */
+static void GetBaseDir(const std::string &filepath) {
+	if (filepath.find_last_of("/\\") != std::string::npos) {
+		GBaseDir = filepath.substr(0, filepath.find_last_of("/\\"));
+		return;
+	}
+	GBaseDir = ".\\";
+}
 int main(int argc, char* argv[]) {
 	GLTF_ENCODER::Encoder ec;
 	GLTF_ENCODER::GE_STATE state;
+	GetBaseDir(argv[1]);
 	state = ec.EncodeFromAsciiMemory(
-		LoadStringFromFile(FILE_PATH)
+		LoadStringFromFile(argv[1])
 	);
 	if (state != GLTF_ENCODER::GES_OK) {
 		std::cout << ec.ErrorMsg() << std::endl;
@@ -57,7 +65,8 @@ int main(int argc, char* argv[]) {
 	else {
 		std::unique_ptr<std::vector<uint8_t> > compressedData = ec.Buffer();
 		std::ofstream outputFile;
-		outputFile.open("test.glb", std::ios::binary | std::ios::trunc);
+		GBaseDir += "\\test.glb";
+		outputFile.open(GBaseDir.c_str(), std::ios::binary | std::ios::trunc);
 		outputFile.write(reinterpret_cast<char*>(compressedData->data()), compressedData->size());
 		outputFile.close();
 	}
