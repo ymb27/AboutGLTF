@@ -1,0 +1,4 @@
+PROJECT (DracoGltf)
+
+ADD_SUBDIRECTORY (EncodeGLTF lib)
+ADD_SUBDIRECTORY (TestEncoder bin)

@@ -1,0 +1,30 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="..\encodegltf\Encoder.cpp">
+      <Filter>source</Filter>
+    </ClCompile>
+    <ClCompile Include="..\encodegltf\Utility.cpp">
+      <Filter>source</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\encodegltf\Encoder.h">
+      <Filter>header</Filter>
+    </ClInclude>
+    <ClInclude Include="..\encodegltf\tinyGLTF_wrapper.h">
+      <Filter>header</Filter>
+    </ClInclude>
+    <ClInclude Include="..\encodegltf\Utility.h">
+      <Filter>header</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="header">
+      <UniqueIdentifier>{ca4830e4-33ab-4c31-b9cb-feb01212f143}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="source">
+      <UniqueIdentifier>{bbfaa67f-a5b2-463e-b144-d5471aa5053c}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>

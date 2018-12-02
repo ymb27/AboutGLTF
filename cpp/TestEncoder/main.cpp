@@ -6,8 +6,8 @@
 std::string GBaseDir;
 class InputFileContainer {
 public:
-	InputFileContainer(const char* name, std::ios::_Openmode mode = std::ios::in) {
-		file.open(name, std::ios::in | mode);
+	InputFileContainer(const char* name, int mode = 1) {
+		file.open(name, static_cast<std::ios::openmode>(mode));
 	}
 	~InputFileContainer() {
 		if (file.is_open()) file.close();
