@@ -1,4 +1,4 @@
-﻿#include "Encoder.h"
+﻿#include <Encoder.h>
 #include <iostream>
 #include <fstream>
 #include <assert.h>

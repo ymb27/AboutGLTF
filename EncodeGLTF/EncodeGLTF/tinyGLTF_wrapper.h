@@ -69,6 +69,9 @@ namespace tinygltf_wrapper {
 		return INVALID_UINT_8;
 	}
 
+	/* Wrapper of accessor */
+	/* access buffer Data easily */
+	/* WARNNING! Doesn't support sparse accessor */
 	class DataContainer {
 	public:
 		static DataContainer Create(const tinygltf::Accessor& acc, tinygltf::Model& m) {
@@ -88,12 +91,13 @@ namespace tinygltf_wrapper {
 		inline uint8_t* data() const { return m_data; }
 		inline uint8_t stride() const { return m_stride; }
 		inline uint8_t size() const { return m_size; }
+		/* Extract curent accessor's data */
 		std::vector<uint8_t> packBuffer() const {
 			std::vector<uint8_t> res;
 			res.resize(m_count * m_size);
 			uint8_t* res_ptr = &res[0];
 			for (uint32_t i = 0; i < m_count; ++i) {
-				memcpy_s(res_ptr, m_size, m_data + i * m_stride, m_size);
+				memcpy(res_ptr, m_data + i * m_stride, m_size);
 				res_ptr += m_size;
 			}
 			return res;

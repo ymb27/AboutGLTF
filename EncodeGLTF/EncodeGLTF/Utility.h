@@ -33,8 +33,8 @@ private:
 
 class InputFileContainer {
 public:
-	InputFileContainer(const char* name, std::ios::_Openmode mode = std::ios::in) {
-		file.open(name, std::ios::in | mode);
+	InputFileContainer(const char* name, int mode = 1) {
+		file.open(name, static_cast<std::ios_base::openmode>(mode));
 	}
 	~InputFileContainer() {
 		if (file.is_open()) file.close();
@@ -103,7 +103,8 @@ public:
 		if (!state) return state;
 		if (id >= positions.size()) {
 			err = "pos id is out of range";
-			return state = false;
+			state = false;
+			return state;
 		}
 		positions[id][0] = x;
 		positions[id][1] = y;
@@ -114,7 +115,8 @@ public:
 		if (!state) return state;
 		if (id >= faces.size()) {
 			err = "face id out of range";
-			return state = false;
+			state = false;
+			return state;
 		}
 		faces[id][0] = v1;
 		faces[id][1] = v2;
@@ -126,7 +128,8 @@ public:
 		hasNormal = true;
 		if (id >= normals.size()) {
 			err = "normal id is out of range";
-			return state = false;
+			state = false;
+			return state;
 		}
 		normals[id][0] = x;
 		normals[id][1] = y;
@@ -172,24 +175,24 @@ inline void Test_Log(T t, Args... args) {
 	Test_Log(args...);
 }
 
-void DracoMeshToOBJ(draco::Mesh& mesh, const char* outputName);
+//void DracoMeshToOBJ(draco::Mesh& mesh, const char* outputName);
 
-namespace tinygltf {
-	class Model;
-	struct Primitive;
-	struct Mesh;
-}
-void GLTFMeshToOBJ(tinygltf::Model& m, tinygltf::Primitive& pte, const char* name);
-void DracoMeshToGLTFMesh(tinygltf::Model& m, tinygltf::Mesh	& outputMesh, 
-	draco::Mesh& mesh, const GLTF_ENCODER::EncodedMeshBufferDesc& header);
-
-#if defined(UTILITY_IMPLEMENTATION)
-struct {
-	std::unique_ptr< draco::Mesh > meshPtr;
-} T_GVAR;
-#endif
-GE_STATE decompress(const int8_t* data);
-GE_STATE decompressMesh(const int8_t* data, size_t size);
-GE_STATE analyseDecompressMesh();
+//namespace tinygltf {
+//	class Model;
+//	struct Primitive;
+//	struct Mesh;
+//}
+//void GLTFMeshToOBJ(tinygltf::Model& m, tinygltf::Primitive& pte, const char* name);
+//void DracoMeshToGLTFMesh(tinygltf::Model& m, tinygltf::Mesh	& outputMesh, 
+//	draco::Mesh& mesh, const GLTF_ENCODER::EncodedMeshBufferDesc& header);
+//
+//#if defined(UTILITY_IMPLEMENTATION)
+//struct {
+//	std::unique_ptr< draco::Mesh > meshPtr;
+//} T_GVAR;
+//#endif
+//GE_STATE decompress(const int8_t* data);
+//GE_STATE decompressMesh(const int8_t* data, size_t size);
+//GE_STATE analyseDecompressMesh();
 
 #endif /* UTILITY_H */

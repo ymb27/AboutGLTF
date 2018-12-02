@@ -938,7 +938,7 @@ class TinyGLTF {
   ///
   bool WriteGltfSceneToBuffer(Model* model, std::vector<uint8_t>& outputBuffer,
 	  bool embedBuffers);
-#endif TINYGLTF_USER_EXT
+#endif // TINYGLTF_USER_EXT
 
   ///
   /// Set callback to use for loading image data
@@ -1029,32 +1029,30 @@ void SetupGlbFileBuffer(std::vector<uint8_t>& outputBufer,
 	outputBufer.resize(header.length);
 	uint8_t* outputBufPtr = outputBufer.data();
 	// header
-	memcpy_s(outputBufPtr, sizeof(GLBHeader), &header, sizeof(GLBHeader));
+	memcpy(outputBufPtr, &header, sizeof(GLBHeader));
 	outputBufPtr += sizeof(GLBHeader);
 	// json chunk
 	GLBChunkHeader chunkHeader;
 	chunkHeader = { jsonDataLength + jsonPadding, TINYGLTF_CHUNK_TYPE_JSON };
-	memcpy_s(outputBufPtr, sizeof(GLBChunkHeader), &chunkHeader, sizeof(GLBChunkHeader));
+	memcpy(outputBufPtr, &chunkHeader, sizeof(GLBChunkHeader));
 	outputBufPtr += sizeof(GLBChunkHeader);
-	memcpy_s(outputBufPtr, jsonDataLength, jsonData, jsonDataLength);
+	memcpy(outputBufPtr, jsonData, jsonDataLength);
 	outputBufPtr += jsonDataLength;
 	if (jsonPadding > 0) {
 		std::vector<char> jsonPaddingValue(jsonPadding, ' ');
-		memcpy_s(outputBufPtr, jsonPaddingValue.size(), 
-			jsonPaddingValue.data(), jsonPaddingValue.size());
+		memcpy(outputBufPtr, jsonPaddingValue.data(), jsonPaddingValue.size());
 		outputBufPtr += jsonPadding;
 	}
 	// binary chunk
 	if (binaryData && binaryDataLength != 0) {
 		chunkHeader = { binaryDataLength + binPadding, TINYGLTF_CHUNK_TYEP_BINARY };
-		memcpy_s(outputBufPtr, sizeof(GLBChunkHeader), &chunkHeader, sizeof(GLBChunkHeader));
+		memcpy(outputBufPtr, &chunkHeader, sizeof(GLBChunkHeader));
 		outputBufPtr += sizeof(GLBChunkHeader);
-		memcpy_s(outputBufPtr, binaryDataLength, binaryData, binaryDataLength);
+		memcpy(outputBufPtr, binaryData, binaryDataLength);
 		outputBufPtr += binaryDataLength;
 		if (binPadding > 0) {
 			std::vector<uint8_t> binPaddingValue(binPadding, 0);
-			memcpy_s(outputBufPtr, binPaddingValue.size(),
-				binPaddingValue.data(), binPaddingValue.size());
+			memcpy(outputBufPtr, binPaddingValue.data(), binPaddingValue.size());
 		}
 	}
 }

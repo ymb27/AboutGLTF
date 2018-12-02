@@ -31,8 +31,8 @@ namespace GLTF_ENCODER {
 		/* call Buffer after invoking this function */
 		/* or m_outputBuf data will lost after invoking this function again*/
 		GE_STATE EncodeFromAsciiMemory(const std::string&);
-		const std::string& ErrorMsg() const;
-		const std::string& WarnMsg() const;
+		const std::string& ErrorMsg() const { return m_err; };
+		const std::string& WarnMsg() const { return m_warn; };
 		/* !WARNING! */
 		/* m_outbuffer won't have NO ownership of the vector(or the buffer)*/
 		std::unique_ptr< std::vector<uint8_t> > Buffer() {

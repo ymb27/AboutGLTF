@@ -22,23 +22,10 @@ using namespace GLTF_ENCODER;
 #include "Utility.h"
 /* LOG for developing data */
 #define MLOG(...) Test_Log(__VA_ARGS__ )
-#define DRACO_MESH_TO_OBJ(mesh, name) DracoMeshToOBJ(mesh, name)
-#define GLTF_MESH_TO_OBJ(model, mesh, name) GLTFMeshToOBJ(model, mesh, name)
-#define DECOMPRESS(data) decompress(data)
-#define DECOMPRESS_MESH(data, size) decompressMesh(data, size)
-#define ANALYSE_DECOMPRESS() analyseDecompressMesh()
 extern std::string GBaseDir;
 #else
 #define MLOG(...)
-#define DRACO_MESH_TO_OBJ(mesh, name)
-#define GLTF_MESH_TO_OBJ(model, mesh, name)
-#define DECOMPRESS(data)
-#define DECOMPRESS_MESH(data, size) GES_OK
-#define ANALYSE_DECOMPRESS() GES_OK
 #endif /* TEST_COMPRESS */
-
-
-#define ARR3(name) name##[0], name##[1], name##[2]
 
 /* global variable */
 struct {
@@ -47,9 +34,12 @@ struct {
 } GVAR;
 
 /* load model data from json data */
-inline GE_STATE loadModel(const std::string&, tinygltf::Model*);
+inline GE_STATE loadModel(const std::string& jsonData, tinygltf::Model* outputModel);
 /* set explicit attribute quantization. */
-/* WARNING! It should be guaranteed that max/min values are correct */
+/* Get max/min value and number of components refer to accessor */
+/* set quantization bits, according to attribute |type| */
+/* if max/min values are defined, its quantization bits is |optBit| or set to |defBit| */
+/* WARNING! caller should guarantee that max/min values are correct if defined*/
 inline void encoderSettingHelper(draco::Encoder& encoder, draco::GeometryAttribute::Type type,
 	int defBit, int optBit, const tinygltf::Accessor& acc, int numOfCmp);
 /* make a draco mesh according to the triangle primitive */
@@ -62,11 +52,12 @@ inline GE_STATE compressMesh(std::unique_ptr<draco::Mesh>& inputMesh,
 	draco::Encoder& encoder,
 	std::unique_ptr< std::vector<uint8_t> >& outputBuffer);
 /* pri is the origin primitive, this function will add extension to it */
-/* and reset its attributes' bufferView ID since it won't use uncompress data any more */
+/* and record that its bufferView ID and byteOffset property will be ignore, */
+/* since it won't use uncompress data any more */
 inline GE_STATE setDracoCompressPrimitive(tinygltf::Primitive& pri, tinygltf::Model& gltf,
 	const EncodedMeshBufferDesc& desc, std::set<int>& ignoreBufferViewAccessorID);
-/* update gltf file, reorgnize its bufferViews and buffers */
-inline GE_STATE updateGLTFData(tinygltf::Model& targetMod, std::set<int>& ignoreBufferViewAccessorID);
+/* update gltf file, update accessors, reorgnize its bufferViews and buffers */
+inline GE_STATE updateGLTFData(tinygltf::Model& gltf, std::set<int>& ignoreBufferViewAccessorID);
 /* append draco compressed data to Gltf buffers */
 inline GE_STATE appendCompressBufferToGLTF(tinygltf::Model& gltf,
 	std::vector<tinygltf::Primitive*>& pris,
@@ -77,38 +68,44 @@ GE_STATE Encoder::EncodeFromAsciiMemory(const std::string& jData) {
 	GVAR.warn = &m_warn;
 	GE_STATE state = GES_OK;
 	tinygltf::Model gltf;
+	/* load jsonData and intialize  |gltf|*/
 	state = loadModel(jData, &gltf);
 	if (state != GES_OK) return state;
+	/* contain references to primitives that used draco compressed */
 	std::vector<tinygltf::Primitive*> compressedPrimitives;
+	/* contain pointers which point to compressed data */
 	std::vector<std::unique_ptr<std::vector<uint8_t> > > compressedDatas;
-	std::set<int> ignoreBufferViewAccessorID;
-	/* Traversal model file and compressed each primitive */
-	/* TODO: currently only support triangle and ignore its material */
+	/* contain ID of accessor that need to ignore its bufferView and byteOffset */
+	std::set<int> compressedPrimitiveOriginAccessorID;
+	/* Traversal model file and compressed triangle primitive, */
+	/* since KHR_draco_compress_extension only support triangle(strip) primitive */
 	for (tinygltf::Mesh& mesh : gltf.meshes) {
 		for (tinygltf::Primitive& pri : mesh.primitives) {
+			/* TODO: support triangle strip */
 			if (pri.mode == TINYGLTF_MODE_TRIANGLES) {
 				compressedPrimitives.push_back(&pri);
+				/* record each compressed attribute's id */
 				EncodedMeshBufferDesc header;
 				{
-					/* setup encoder's setting while make the mesh */
 					draco::Encoder encoder;
 					/* buffer that contain this primitives compressed data */
 					std::unique_ptr<std::vector<uint8_t> > compressBuffer;
 					/* build a mesh according to primitive's attributes */
 					std::unique_ptr<draco::Mesh> mesh;
+					/* setup encoder's setting while make the mesh */
 					state = makeMesh(pri, gltf, mesh, encoder, header);
 					if (state != GES_OK) return state;
 					state = compressMesh(mesh, encoder, compressBuffer);
 					if (state != GES_OK) return state;
 					compressedDatas.push_back(std::move(compressBuffer));
 				}
-				/* set compressBuffer to gltf file*/
-				state = setDracoCompressPrimitive(pri, gltf, header, ignoreBufferViewAccessorID);
+				/* update primitive data, add draco extension to it*/
+				state = setDracoCompressPrimitive(pri, gltf, header, compressedPrimitiveOriginAccessorID);
 				if (state != GES_OK) return state;
 			}
 		}
 	}
-	state = updateGLTFData(gltf, ignoreBufferViewAccessorID);
+	state = updateGLTFData(gltf, compressedPrimitiveOriginAccessorID);
 	if (state != GES_OK) return state;
 	appendCompressBufferToGLTF(gltf, compressedPrimitives, compressedDatas);
 	gltf.extensionsRequired.push_back("KHR_draco_mesh_compression");
@@ -121,11 +118,11 @@ GE_STATE Encoder::EncodeFromAsciiMemory(const std::string& jData) {
 	return state;
 }
 
-const std::string& Encoder::ErrorMsg() const { return m_err; }
-const std::string& Encoder::WarnMsg() const { return m_warn; }
-
 /* private helper functions */
 GE_STATE loadModel(const std::string& jData, tinygltf::Model* gltf) {
+	/* WARNNING! If gltf use indirect path to indicate its external file */
+	/* IT's very important to set base_dir correctly */
+	/* or Tinygltf can't guarantee loading gltf completely */
 #ifdef TEST_COMPRESS
 	std::string base_dir = GBaseDir;
 #else /* TEST_COMPRESS */
@@ -137,8 +134,7 @@ GE_STATE loadModel(const std::string& jData, tinygltf::Model* gltf) {
 	state = ret ? GES_OK : GES_ERR;
 	if (state != GES_OK)	return state;
 	/* It's invalid to compress a gltf file without any meshes */
-	size_t numOfMesh = gltf->meshes.size();
-	if (numOfMesh <= 0) {
+	if (gltf->meshes.size() <= 0) {
 		*GVAR.err = "No Mesh!";
 		state = GES_ERR;
 	}
@@ -148,10 +144,11 @@ GE_STATE loadModel(const std::string& jData, tinygltf::Model* gltf) {
 inline void encoderSettingHelper(draco::Encoder& encoder, const draco::GeometryAttribute::Type type,
 	const int defBit, const int optBit, const tinygltf::Accessor& acc, const int numOfCmp) {
 	if (acc.minValues.size() != numOfCmp || acc.maxValues.size() != numOfCmp) {
-		/* Since no reference, use default setting*/
+		/* It seems max/min value is not correct, use default setting*/
 		encoder.SetAttributeQuantization(type, defBit);
 	}
 	else {
+		/* WARNNING! I don't promise that such quantization bit setting is right but it work! :) */
 		std::vector<float> candidateRange(numOfCmp);
 		std::vector<float> origin(numOfCmp);
 		for (int i = 0; i < numOfCmp; ++i) {
@@ -182,7 +179,6 @@ GE_STATE makeMesh(const tinygltf::Primitive& pri,
 	} extentPointType;
 
 	/* processing index */
-	/* doesn't support sparse accessor */
 	tinygltf_wrapper::IndexContainer ic = tinygltf_wrapper::GetIndices(pri, gltf);
 	for (draco::FaceIndex fid(0); fid < numOfFaces; ++fid) {
 		draco::Mesh::Face face;
@@ -194,7 +190,7 @@ GE_STATE makeMesh(const tinygltf::Primitive& pri,
 	/* processing attributes */
 	for (const auto& iter : pri.attributes) {
 		draco::GeometryAttribute::Type geoAttType;
-		draco::DataType geoDataType;
+		draco::DataType geoDataType = draco::DataType::DT_INVALID;
 		const tinygltf::Accessor& attAcc = gltf.accessors[iter.second];
 		int8_t numOfCmp = 0;
 		if (!iter.first.compare("POSITION")) {
@@ -321,7 +317,7 @@ GE_STATE compressMesh(std::unique_ptr<draco::Mesh>& inputMesh,
 	(*outputBuffer).resize(bufSize);
 	uint8_t* bufPtr = (*outputBuffer).data();
 
-	memcpy_s(bufPtr, bufSize, eBuf.data(), bufSize);
+	memcpy(bufPtr, eBuf.data(), bufSize);
 	MLOG("compressed size ", bufSize);
 	MLOG("compressed points ", encoder.num_encoded_points());
 	MLOG("compressed faces ", encoder.num_encoded_faces());
@@ -342,7 +338,7 @@ GE_STATE setDracoCompressPrimitive(tinygltf::Primitive& pri, tinygltf::Model& gl
 	/* record that original index data is deprecated */
 	ignoreBufferViewAccessorID.insert(pri.indices);
 
-	/* set extension */
+	/* setup extension */
 	tinygltf::Value::Object extObj;
 	tinygltf::Value::Object khr_draco_mesh_compression;
 	tinygltf::Value::Object ext_atts;
@@ -389,12 +385,13 @@ inline void updateBufferViews(ObjectContainer& container,
 		}
 	}
 }
-/* after adding compress data. we need to remove uncompress data */
-/* reorganize bufferViews and buffers */
+
 GE_STATE updateGLTFData(tinygltf::Model& model, std::set<int>& ignoreBufferViewAccessorID) {
 	for (int accID : ignoreBufferViewAccessorID) {
 		/* set bufferView to -1, and tinygltf won't serialize this property */
 		model.accessors[accID].bufferView = -1;
+		/* set accessors's byteOffset to -1, and tinygltf won't serialize this property */
+		model.accessors[accID].byteOffset = 0;
 	}
 	/* find out which bufferViews need to be removed */
 	/* store bufferViews still being used */
@@ -421,7 +418,7 @@ GE_STATE updateGLTFData(tinygltf::Model& model, std::set<int>& ignoreBufferViewA
 
 		tinygltf::Buffer& buf = model.buffers[bufView.buffer];
 		const uint8_t* dataPtr = buf.data.data();
-		memcpy_s(nDataPtr, bufView.byteLength, dataPtr + bufView.byteOffset, bufView.byteLength);
+		memcpy(nDataPtr, dataPtr + bufView.byteOffset, bufView.byteLength);
 		bufView.byteOffset = 0;
 	}
 	model.buffers.swap(nBuffers);
@@ -454,8 +451,7 @@ inline GE_STATE appendCompressBufferToGLTF(tinygltf::Model& gltf,
 		khr_ext["bufferView"].Get<int>() = gltf.bufferViews.size() - 1;
 		
 		/* update glb buffer */
-		memcpy_s(gltf.buffers[0].data.data() + currentByteOffset, buf->size(),
-			buf->data(), buf->size());
+		memcpy(gltf.buffers[0].data.data() + currentByteOffset, buf->data(), buf->size());
 		
 		currentByteOffset += buf->size();
 	}
