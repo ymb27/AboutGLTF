@@ -1,10 +1,7 @@
 INCLUDE_DIRECTORIES(
-    ../3rdpart/draco/include
-    ../3rdpart/tinygltf/include
+    "${PROJECT_SOURCE_DIR}/3rdpart/draco/include"
+    "${PROJECT_SOURCE_DIR}/3rdpart/tinygltf/include"
 )
-LINK_DIRECTORIES(
-    ../3rdpart/draco/lib
-)
-LINK_LIBRARIES(dracoenc)
 
 add_library(EncodeGLTF Encoder.cpp)
+target_link_libraries(EncodeGLTF ${DRACOLIB})

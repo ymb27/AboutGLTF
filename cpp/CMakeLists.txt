@@ -1,4 +1,6 @@
+cmake_minimum_required(VERSION 3.0)
 PROJECT (DracoGltf)
+find_library(DRACOLIB draco)
 
 ADD_SUBDIRECTORY (EncodeGLTF lib)
 ADD_SUBDIRECTORY (TestEncoder bin)
