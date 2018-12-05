@@ -22,7 +22,7 @@
     * 当image对象以uri形式保存时，输出原uri字符串
     * 当image对象以bufferView形式保存时，输出buffer，默认缓冲区都以base64形式嵌入到gltf json部分中
 * [ ] 生成draco对象并进行压缩
-
+  * [ ] 处理不使用索引的模型 
   * [x] 提取gltf中的triangle primitive手动构造draco::mesh
   * [x] 检验压缩前后模型的数据一致性：
     * [x] 索引信息
