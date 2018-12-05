@@ -83,6 +83,9 @@ GE_STATE Encoder::EncodeFromAsciiMemory(const std::string& jData) {
 		for (tinygltf::Primitive& pri : mesh.primitives) {
 			/* TODO: support triangle strip */
 			if (pri.mode == TINYGLTF_MODE_TRIANGLES) {
+				/* skip if primitive doesn't have position attribute */
+				if (pri.attributes.find("POSITION") == pri.attributes.end())
+					continue;
 				compressedPrimitives.push_back(&pri);
 				/* record each compressed attribute's id */
 				EncodedMeshBufferDesc header;
@@ -179,13 +182,27 @@ GE_STATE makeMesh(const tinygltf::Primitive& pri,
 	} extentPointType;
 
 	/* processing index */
-	tinygltf_wrapper::IndexContainer ic = tinygltf_wrapper::GetIndices(pri, gltf);
-	for (draco::FaceIndex fid(0); fid < numOfFaces; ++fid) {
-		draco::Mesh::Face face;
-		face[0] = draco::PointIndex(ic[fid.value() * 3 + 0]);
-		face[1] = draco::PointIndex(ic[fid.value() * 3 + 1]);
-		face[2] = draco::PointIndex(ic[fid.value() * 3 + 2]);
-		m.SetFace(fid, face);
+	/* WARNNING index is not required property! */
+	if (pri.indices != -1) {
+		/* if has index property */
+		tinygltf_wrapper::IndexContainer ic = tinygltf_wrapper::GetIndices(pri, gltf);
+		for (draco::FaceIndex fid(0); fid < numOfFaces; ++fid) {
+			draco::Mesh::Face face;
+			face[0] = draco::PointIndex(ic[fid.value() * 3 + 0]);
+			face[1] = draco::PointIndex(ic[fid.value() * 3 + 1]);
+			face[2] = draco::PointIndex(ic[fid.value() * 3 + 2]);
+			m.SetFace(fid, face);
+		}
+	}
+	else {
+		/* there is no index property */
+		for (draco::FaceIndex fid(0); fid < numOfFaces; ++fid) {
+			draco::Mesh::Face face;
+			face[0] = fid.value() * 3 + 0;
+			face[1] = fid.value() * 3 + 1;
+			face[2] = fid.value() * 3 + 2;
+			m.SetFace(fid, face);
+		}
 	}
 	/* processing attributes */
 	for (const auto& iter : pri.attributes) {
@@ -335,8 +352,10 @@ GE_STATE setDracoCompressPrimitive(tinygltf::Primitive& pri, tinygltf::Model& gl
 		/* record that this attribute accessor won't need */
 		/* original bufferView(bufferData) any more */
 		ignoreBufferViewAccessorID.insert(att.second);
+
 	/* record that original index data is deprecated */
-	ignoreBufferViewAccessorID.insert(pri.indices);
+	if (pri.indices != -1) /* index property should be there */
+		ignoreBufferViewAccessorID.insert(pri.indices);
 
 	/* setup extension */
 	tinygltf::Value::Object extObj;

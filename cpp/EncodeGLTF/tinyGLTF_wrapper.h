@@ -16,6 +16,12 @@ namespace tinygltf_wrapper {
 	/* make sense to triangle primitive */
 	inline uint32_t NumOfFaces(const tinygltf::Primitive& p,
 		const tinygltf::Model& m) {
+		/*index is not required. be careful if there's no index property */
+		if (p.indices == -1) {
+			/* WARNNING caller should guarantee that primitive has position attribute */
+			int posAcc = p.attributes.find("POSITION")->second;
+			return m.accessors[posAcc].count / 3;
+		}
 		return m.accessors[p.indices].count / 3;
 	}
 

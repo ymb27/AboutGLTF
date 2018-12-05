@@ -1,23 +1,17 @@
-/EncodeGLTF/Debug
-/EncodeGLTF/EncodeGLTF/Debug
-/EncodeGLTF/.vs
-#��������ƽ̨��lib,dll�ļ����������ļ���·��
-/EncodeGLTF/3rdpart/draco/bin/*.dll
-/EncodeGLTF/3rdpart/draco/bin/*.exe
-/EncodeGLTF/3rdpart/draco/lib/*.lib
-/EncodeGLTF/3rdpart/zlib-1.2.11/lib/*.lib
-#�м����ɵ�objҲ�������ϴ�
-/EncodeGLTF/EncodeGLTF/*.obj
+﻿#��������ƽ̨��lib,dll�ļ����������ļ���·��
+cpp/3rdpart/draco/bin/*.dll
+cpp/3rdpart/draco/bin/*.exe
+cpp/3rdpart/draco/lib/*.lib
+cpp/3rdpart/zlib-1.2.11/lib/*.lib
+
 *.bin
 *.gltf
 *.glb
-EncodeGLTF/EncodeGLTF/Test Set/
-EncodeGLTF/TestEncoder/Debug/
-cpp/vsdev/TestUnit/Debug/
-cpp/vsdev/DracoGltf/
+cpp/vsdev/TestUnit
 cpp/vsdev/.vs/
 cpp/EncodeGLTF/Test Set/
 cpp/build/
 cpp/.vs/
 .vs/
 *.lib
+cpp/vsdev/EncodeGltf/
