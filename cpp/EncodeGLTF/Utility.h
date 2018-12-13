@@ -41,8 +41,9 @@ public:
 	}
 	const bool state() const { return file.is_open(); }
 	const bool isEOF() const { return  file.eof(); }
-	std::vector<char> data() {
-		std::vector<char> ret;
+	template<typename T>
+	std::vector<T> data() {
+		std::vector<T> ret;
 		if (!file.is_open()) return ret;
 		file.seekg(0, std::ios::end);
 		size_t fileSize = static_cast<size_t>(file.tellg());

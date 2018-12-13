@@ -18,6 +18,9 @@
     <ClInclude Include="..\encodegltf\Utility.h">
       <Filter>header</Filter>
     </ClInclude>
+    <ClInclude Include="..\EncodeGLTF\zlib_wrapper.hpp">
+      <Filter>header</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="header">

@@ -10,10 +10,11 @@ namespace GLTF_ENCODER {
 		GES_ERR
 	};
 
-	struct EncoderHeader {
-		const uint8_t headerSize = sizeof(EncoderHeader);
-		uint32_t numOfbuffer = 0; /* so total number of primitive should not more than 2 ^ 32 */
-		uint32_t bufferLength = 0; /* length of all data: header + buffers */
+	struct CompressHeader {
+		uint32_t cprSize;
+		uint32_t glbHeaderSize = 12;
+		uint32_t glbBinSize;
+		uint32_t glbjsonSize;
 	};
 
 	struct EncodedMeshBufferDesc {
@@ -31,6 +32,8 @@ namespace GLTF_ENCODER {
 		/* call Buffer after invoking this function */
 		/* or m_outputBuf data will lost after invoking this function again*/
 		GE_STATE EncodeFromAsciiMemory(const std::string&);
+		void SetBaseDir(const std::string& base_dir) { m_base_dir == base_dir; }
+		const std::string& BaseDir() const { return m_base_dir; }
 		const std::string& ErrorMsg() const { return m_err; };
 		const std::string& WarnMsg() const { return m_warn; };
 		/* !WARNING! */
@@ -45,6 +48,8 @@ namespace GLTF_ENCODER {
 		std::string m_err;
 		/* last warning message */
 		std::string m_warn;
+		/* base dir for loading source with relative uri */
+		std::string m_base_dir = "./";
 	};
 }
 #endif /* !ENCODER_H */

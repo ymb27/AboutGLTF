@@ -70,8 +70,8 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <LinkIncremental>true</LinkIncremental>
     <OutDir>../build/bin/</OutDir>
-    <IncludePath>../EncodeGLTF;$(IncludePath)</IncludePath>
-    <LibraryPath>../build/lib;$(LibraryPath)</LibraryPath>
+    <IncludePath>../3rdpart/zlib/include;../EncodeGLTF;$(IncludePath)</IncludePath>
+    <LibraryPath>../3rdpart/zlib/lib;../build/lib;$(LibraryPath)</LibraryPath>
     <IntDir>$(ProjectName)\$(Configuration)\</IntDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -105,7 +105,7 @@
       <TargetMachine>MachineX86</TargetMachine>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Console</SubSystem>
-      <AdditionalDependencies>EncodeGltf.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>EncodeGltf.lib;zlibstaticd.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">

@@ -1023,8 +1023,8 @@ void SetupGlbFileBuffer(std::vector<uint8_t>& outputBufer,
 	uint8_t jsonPadding = 4 - (jsonDataLength + 8) % 4;
 	uint8_t binPadding = 4 - (binaryDataLength + 8) % 4;
 	GLBHeader header(sizeof(GLBHeader) + 
-		jsonDataLength + 8 + jsonPadding + 
-		binaryDataLength + 8 + binPadding);
+		jsonDataLength + sizeof(GLBChunkHeader) + jsonPadding + 
+		binaryDataLength + sizeof(GLBChunkHeader) + binPadding);
 
 	outputBufer.resize(header.length);
 	uint8_t* outputBufPtr = outputBufer.data();

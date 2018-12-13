@@ -7,7 +7,7 @@
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 // #define TINYGLTF_NOEXCEPTION // optional. disable exception handling
 #include "tinyGLTF_wrapper.h"
-
+#include "zlib_wrapper.hpp"
 #include "Encoder.h"
 #include <iostream>
 #include <utility>
@@ -34,7 +34,7 @@ struct {
 } GVAR;
 
 /* load model data from json data */
-inline GE_STATE loadModel(const std::string& jsonData, tinygltf::Model* outputModel);
+inline GE_STATE loadModel(const std::string& jsonData, tinygltf::Model* outputModel, const std::string& baseDir);
 /* set explicit attribute quantization. */
 /* Get max/min value and number of components refer to accessor */
 /* set quantization bits, according to attribute |type| */
@@ -63,13 +63,16 @@ inline GE_STATE appendCompressBufferToGLTF(tinygltf::Model& gltf,
 	std::vector<tinygltf::Primitive*>& pris,
 	std::vector<std::unique_ptr<std::vector<uint8_t> > >& bufs);
 
+inline GE_STATE compressGLBData(std::vector<uint8_t>& glbData,
+	std::vector<uint8_t>& output);
+
 GE_STATE Encoder::EncodeFromAsciiMemory(const std::string& jData) {
 	GVAR.err = &m_err;
 	GVAR.warn = &m_warn;
 	GE_STATE state = GES_OK;
 	tinygltf::Model gltf;
 	/* load jsonData and intialize  |gltf|*/
-	state = loadModel(jData, &gltf);
+	state = loadModel(jData, &gltf, BaseDir());
 	if (state != GES_OK) return state;
 	/* contain references to primitives that used draco compressed */
 	std::vector<tinygltf::Primitive*> compressedPrimitives;
@@ -114,23 +117,64 @@ GE_STATE Encoder::EncodeFromAsciiMemory(const std::string& jData) {
 	gltf.extensionsRequired.push_back("KHR_draco_mesh_compression");
 	gltf.extensionsUsed.push_back("KHR_draco_mesh_compression");
 
-	m_outputBuf = std::make_unique<std::vector<uint8_t> >();
 	tinygltf::TinyGLTF writer;
-	writer.WriteGltfSceneToBuffer(&gltf, *m_outputBuf);
+	m_outputBuf = std::make_unique<std::vector<uint8_t> >();
+	std::vector<uint8_t> glbBuf;
+	writer.WriteGltfSceneToBuffer(&gltf, glbBuf);
 	
+	compressGLBData(glbBuf, *m_outputBuf);
+
 	return state;
 }
 
+GE_STATE compressGLBData(std::vector<uint8_t>& glbData,
+	std::vector<uint8_t>& output) {
+	GE_STATE ret = GES_OK;
+#ifdef TINYGLTF_USER_EXT
+	/* Need to use GLBHeader and GLBChunkHeader */
+	/* and such struct require that this marco be defined */
+	tinygltf::GLBHeader glbHeader(0);
+	tinygltf::GLBChunkHeader jsonChunkHeader;
+	tinygltf::GLBChunkHeader binChunkHeader;
+	CompressHeader ch;
+	uint8_t* bufPtr = glbData.data();
+	memcpy(&glbHeader, bufPtr, sizeof(tinygltf::GLBHeader));
+	bufPtr += sizeof(tinygltf::GLBHeader);
+	memcpy(&jsonChunkHeader, bufPtr, sizeof(tinygltf::GLBChunkHeader));
+	/* extract data from json buffer */
+	std::vector<uint8_t> cprSrc(jsonChunkHeader.length + sizeof(tinygltf::GLBChunkHeader));
+	std::vector<uint8_t> cprDest;
+
+	ch.glbjsonSize = cprSrc.size();
+
+	memcpy(cprSrc.data(), bufPtr, cprSrc.size());
+	zlib_wrapper::compress(cprDest, cprSrc);
+
+	bufPtr += cprSrc.size();
+	memcpy(&binChunkHeader, bufPtr, sizeof(tinygltf::GLBChunkHeader));
+	
+	ch.cprSize = cprDest.size();
+
+	/* compress header + glbheader + compressed data + glbbinarybuffer */
+	output.resize(sizeof(CompressHeader) + sizeof(tinygltf::GLBHeader) + cprDest.size()
+		+ (binChunkHeader.length + sizeof(tinygltf::GLBChunkHeader)));
+
+	ch.glbBinSize = binChunkHeader.length + sizeof(tinygltf::GLBChunkHeader);
+	uint8_t* outputPtr = output.data();
+	memcpy(outputPtr, &ch, sizeof(CompressHeader)); outputPtr += sizeof(CompressHeader);
+	memcpy(outputPtr, &glbHeader, sizeof(tinygltf::GLBHeader)); outputPtr += sizeof(tinygltf::GLBHeader);
+	memcpy(outputPtr, cprDest.data(), cprDest.size()); outputPtr += cprDest.size();
+	memcpy(outputPtr,
+		bufPtr, binChunkHeader.length + sizeof(tinygltf::GLBChunkHeader));
+#endif // TINYGLTF_USER_EXT
+	return ret;
+}
+
 /* private helper functions */
-GE_STATE loadModel(const std::string& jData, tinygltf::Model* gltf) {
+GE_STATE loadModel(const std::string& jData, tinygltf::Model* gltf, const std::string& base_dir) {
 	/* WARNNING! If gltf use indirect path to indicate its external file */
 	/* IT's very important to set base_dir correctly */
 	/* or Tinygltf can't guarantee loading gltf completely */
-#ifdef TEST_COMPRESS
-	std::string base_dir = GBaseDir;
-#else /* TEST_COMPRESS */
-	std::string base_dir = "";
-#endif /* TEST_COMPRESS */
 	tinygltf::TinyGLTF loader;
 	GE_STATE state;
 	bool ret = loader.LoadASCIIFromString(gltf, GVAR.err, GVAR.warn, jData.c_str(), jData.size(), base_dir);

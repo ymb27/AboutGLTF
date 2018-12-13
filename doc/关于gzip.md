@@ -59,3 +59,6 @@ typedef struct z_stream_s {
 
 设置完基本数据流之后，需要结合三个函数进行deflate。三个函数包括`deflateInit`，`deflate`，`deflateEnd`。其功能分别为初始化流(设置剩余变量)，对当前流进行压缩以及结束压缩
 
+### zlib支持压缩类型
+
+zlib是对flate压缩算法的一个实现库。gzip,zlib等文件，均是基于flate算法，设置不同的头文件以及校验和，压缩过程中的参数不同，而衍生出的不同的扩展算法。
