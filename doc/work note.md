@@ -22,6 +22,10 @@
     * 当image对象以uri形式保存时，输出原uri字符串
     * 当image对象以bufferView形式保存时，输出buffer，默认缓冲区都以base64形式嵌入到gltf json部分中
   * [ ] 读取含有中文路径文件base_dir设置问题
+    * [x] 测试windows上中文情况
+    * 利用标准库，先将gltf的utf-8数据变成Unicode；再将unicode 变成 ansi迎合windows的api
+    * (事实上windows api支持unicode，但是tinygltf使用了ansi，所以只能再转成ansi)
+    * [ ] 测试linux上中文情况
 * [ ] 生成draco对象并进行压缩
   * [x] 处理不使用索引的模型 
   * [x] 提取gltf中的triangle primitive手动构造draco::mesh
@@ -69,4 +73,6 @@
   * 提高压缩比例之后，速度比之前快
 
 * [ ] 读取含中文路径文件时，无法找到bin文件
-
+    * 利用标准库，先将gltf的utf-8数据变成Unicode；再将unicode 变成 ansi迎合windows的api
+    * (事实上windows api支持unicode，但是tinygltf使用了ansi，所以只能再转成ansi)
+    * [ ] 测试linux上中文情况

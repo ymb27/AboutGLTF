@@ -47,6 +47,12 @@
 #include <string>
 #include <vector>
 
+#ifdef TINYGLTF_USER_EXT
+#include <locale>
+#include <codecvt>
+#include <fstream>
+#endif
+
 namespace tinygltf {
 
 #define TINYGLTF_MODE_POINTS (0)
@@ -1817,21 +1823,41 @@ bool FileExists(const std::string &abs_filename, void *) {
   } else {
     ret = false;
   }
-
   return ret;
 }
 
 std::string ExpandFilePath(const std::string &filepath, void *) {
 #ifdef _WIN32
+#ifdef TINYGLTF_USER_EXT
+	/* since gltf's data is encoding in utf-8 and windows api doesn't support */
+	/* (windows api support unicode and ansi) */
+	/* so here we convert utf-8 to unicode with standar library */
+	/* and then convert unicode to ansi because tinygltf use ansi */
+	std::wstring_convert<std::codecvt_utf8_utf16<wchar_t> > wcons;
+	std::wstring wstr = wcons.from_bytes(filepath.c_str());
+	/* BE CAREFUL: there  may be some error like invalid flags setting, no matching character in ansi*/
+	BOOL isFailed = false;
+	int ansiLen = WideCharToMultiByte(CP_ACP, WC_NO_BEST_FIT_CHARS | WC_COMPOSITECHECK | WC_DEFAULTCHAR,
+		wstr.data(), -1, NULL, 0, "?", &isFailed);
+	std::vector<char> ansi(ansiLen);
+	WideCharToMultiByte(CP_ACP, WC_NO_BEST_FIT_CHARS | WC_COMPOSITECHECK | WC_DEFAULTCHAR,
+		wstr.data(), -1, ansi.data(), ansiLen, "?", &isFailed);
+
+
+	DWORD len = ExpandEnvironmentStringsA(ansi.data(), NULL, 0);
+	char *str = new char[len];
+	ExpandEnvironmentStringsA(ansi.data(), str, len);
+#else /* TINYGLTF_USER_EXT */
   DWORD len = ExpandEnvironmentStringsA(filepath.c_str(), NULL, 0);
   char *str = new char[len];
   ExpandEnvironmentStringsA(filepath.c_str(), str, len);
-
+#endif /* TINYGLTF_USER_EXT */
   std::string s(str);
 
   delete[] str;
 
   return s;
+
 #else
 
 #if defined(TARGET_OS_IPHONE) || defined(TARGET_IPHONE_SIMULATOR) || \

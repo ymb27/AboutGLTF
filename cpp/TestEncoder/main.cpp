@@ -141,6 +141,12 @@ int main(int argc, char* argv[]) {
 			if (argc == 4) encode(argv[2], argv[3]);
 			else encode(argv[2]);
 		}
+		else if (!std::strcmp(argv[1], "-ED")) {
+			encode(argv[2]);
+			std::string filePath = GetBaseDir(argv[2]);
+			filePath += "/test.zglb";
+			decode(filePath.c_str());
+		}
 		else
 			std::cout << "invalid parameter " << argv[1] << std::endl;
 	}
