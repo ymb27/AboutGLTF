@@ -77,7 +77,7 @@ void encode(const char* path, const char* outputName = nullptr) {
 	else {
 		std::unique_ptr<std::vector<uint8_t> > compressedData = ec.Buffer();
 		std::ofstream outputFile;
-		baseDir = baseDir + "\\";
+		baseDir = baseDir + "/";
 		if (outputName) baseDir += outputName;
 		else baseDir += "test";
 		baseDir += ".zglb";
