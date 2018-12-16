@@ -2,6 +2,7 @@
 #include <zlib_wrapper.hpp>
 #include <iostream>
 #include <fstream>
+#include <cstring>
 #include <assert.h>
 
 class InputFileContainer {

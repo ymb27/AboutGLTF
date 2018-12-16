@@ -3,7 +3,7 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <LocalDebuggerWorkingDirectory>../TestEncoder</LocalDebuggerWorkingDirectory>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
-    <LocalDebuggerCommandArguments>-ED "K:\ChildrenPalace\墙.gltf"</LocalDebuggerCommandArguments>
+    <LocalDebuggerCommandArguments>-ED "C:\LC\WorkSpace\AboutGLTF\cpp\EncodeGLTF\Test Set\DamageHelmet\DamagedHelmet.gltf"</LocalDebuggerCommandArguments>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LocalDebuggerWorkingDirectory>../TestEncoder</LocalDebuggerWorkingDirectory>

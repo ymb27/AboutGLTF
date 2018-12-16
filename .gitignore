@@ -1,4 +1,4 @@
-﻿#��������ƽ̨��lib,dll�ļ����������ļ���·��
+#��������ƽ̨��lib,dll�ļ����������ļ���·��
 cpp/3rdpart/draco/bin/*.dll
 cpp/3rdpart/draco/bin/*.exe
 cpp/3rdpart/draco/lib/*.lib
@@ -15,3 +15,5 @@ cpp/.vs/
 .vs/
 *.lib
 cpp/vsdev/EncodeGltf/
+cpp/EncodeGLTF/Test_Set/
+cpp/vsdev/DracoGltf/

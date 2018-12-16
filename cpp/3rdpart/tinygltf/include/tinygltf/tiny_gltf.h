@@ -1835,6 +1835,7 @@ std::string ExpandFilePath(const std::string &filepath, void *) {
 	/* and then convert unicode to ansi because tinygltf use ansi */
 	std::wstring_convert<std::codecvt_utf8_utf16<wchar_t> > wcons;
 	std::wstring wstr = wcons.from_bytes(filepath.c_str());
+	
 	/* BE CAREFUL: there  may be some error like invalid flags setting, no matching character in ansi*/
 	BOOL isFailed = false;
 	int ansiLen = WideCharToMultiByte(CP_ACP, WC_NO_BEST_FIT_CHARS | WC_COMPOSITECHECK | WC_DEFAULTCHAR,
@@ -1842,7 +1843,6 @@ std::string ExpandFilePath(const std::string &filepath, void *) {
 	std::vector<char> ansi(ansiLen);
 	WideCharToMultiByte(CP_ACP, WC_NO_BEST_FIT_CHARS | WC_COMPOSITECHECK | WC_DEFAULTCHAR,
 		wstr.data(), -1, ansi.data(), ansiLen, "?", &isFailed);
-
 
 	DWORD len = ExpandEnvironmentStringsA(ansi.data(), NULL, 0);
 	char *str = new char[len];
@@ -1864,14 +1864,16 @@ std::string ExpandFilePath(const std::string &filepath, void *) {
     defined(__ANDROID__) || defined(__EMSCRIPTEN__)
   // no expansion
   std::string s = filepath;
+
 #else
+
   std::string s;
   wordexp_t p;
 
   if (filepath.empty()) {
     return "";
   }
-
+  /* wordexp doesn't support space */
   // char** w;
   int ret = wordexp(filepath.c_str(), &p, 0);
   if (ret) {

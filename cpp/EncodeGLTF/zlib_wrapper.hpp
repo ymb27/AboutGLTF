@@ -2,6 +2,7 @@
 #define ZLIB_WRAPPER_HPP
 #define ZLIB_CONST
 #include <zlib/zlib.h>
+#include <limits>
 #include <vector>
 namespace zlib_wrapper {
 	enum COMPRESS_FORMAT {
