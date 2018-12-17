@@ -17,7 +17,9 @@
   ],
   "author": "Lolanto Lu(Lu Yonghao)",
   "license": "ISC",
-  "dependencies": {},
+  "dependencies": {
+    "pako": "^1.0.7"
+  },
   "devDependencies": {
     "eslint": "^5.10.0",
     "eslint-config-google": "^0.11.0",
