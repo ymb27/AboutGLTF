@@ -1,0 +1,25 @@
+{
+  "name": "about_gltf_js",
+  "version": "0.0.0",
+  "description": "decoding gltf file that has been compressed by Draco and ZLIB",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/lolanto/AboutGLTF/tree/master/javascript"
+  },
+  "keywords": [
+    "GLTF",
+    "Draco",
+    "ZLIB"
+  ],
+  "author": "Lolanto Lu(Lu Yonghao)",
+  "license": "ISC",
+  "dependencies": {},
+  "devDependencies": {
+    "eslint": "^5.10.0",
+    "eslint-config-google": "^0.11.0"
+  }
+}
