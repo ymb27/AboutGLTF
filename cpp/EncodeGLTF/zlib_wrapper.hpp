@@ -4,6 +4,9 @@
 #include <zlib/zlib.h>
 #include <limits>
 #include <vector>
+#ifdef _DEBUG
+#include <iostream>
+#endif
 namespace zlib_wrapper {
 	enum COMPRESS_FORMAT {
 		/* setting window size to control compress format */
@@ -57,6 +60,13 @@ namespace zlib_wrapper {
 			deflateEnd(&strm);
 			return ret;
 		}
+#ifdef _DEBUG
+		std::cout << "src size: " << strm.total_in << '\n'
+			<< "cmp size: " << strm.total_out << '\n';
+#endif
+		/* deflateBound returns more space than actual compressed data size */
+		if (strm.total_out < dest.size())
+			dest.resize(strm.total_out);
 		deflateEnd(&strm);
 		return ret;
 	}
