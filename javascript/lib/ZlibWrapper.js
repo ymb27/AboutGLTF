@@ -7,11 +7,11 @@ class ZlibWrapper {
   //     raw: true
   //   })
   // }
-  decompress (src) {
+  decompress (src, windowsBit = -15) {
     if (!(src instanceof Uint8Array)) {
       console.error('parameter is not uint8Array')
     }
-    return pako.inflateRaw(src, { windowBits: -15 })
+    return pako.inflateRaw(src, { windowBits: windowsBit })
   }
 }
 
