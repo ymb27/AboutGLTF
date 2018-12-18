@@ -68,7 +68,7 @@ void encode(const char* path, const char* outputName = nullptr) {
 	GLTF_ENCODER::GE_STATE state;
 	std::string baseDir = GetBaseDir(path);
 	ec.SetBaseDir(baseDir);
-	state = ec.EncodeFromAsciiMemory(
+	state = ec.EncodeFromMemory(
 		LoadStringFromFile(path)
 	);
 	if (state != GLTF_ENCODER::GES_OK) {

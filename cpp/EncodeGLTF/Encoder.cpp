@@ -66,7 +66,7 @@ inline GE_STATE appendCompressBufferToGLTF(tinygltf::Model& gltf,
 inline GE_STATE compressGLBData(std::vector<uint8_t>& glbData,
 	std::vector<uint8_t>& output);
 
-GE_STATE Encoder::EncodeFromAsciiMemory(const std::string& jData) {
+GE_STATE Encoder::EncodeFromMemory(const std::string& jData) {
 	GVAR.err = &m_err;
 	GVAR.warn = &m_warn;
 	GE_STATE state = GES_OK;

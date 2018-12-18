@@ -31,7 +31,7 @@ namespace GLTF_ENCODER {
 		~Encoder() = default;
 		/* call Buffer after invoking this function */
 		/* or m_outputBuf data will lost after invoking this function again*/
-		GE_STATE EncodeFromAsciiMemory(const std::string&);
+		GE_STATE EncodeFromMemory(const std::string&);
 		void SetBaseDir(const std::string& base_dir) { m_base_dir = base_dir; }
 		const std::string& BaseDir() const { return m_base_dir; }
 		const std::string& ErrorMsg() const { return m_err; };

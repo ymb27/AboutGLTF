@@ -1,5 +1,5 @@
 {
-  "name": "about_gltf_js",
+  "name": "decode_zglb",
   "version": "0.0.0",
   "description": "decoding gltf file that has been compressed by Draco and ZLIB",
   "main": "index.js",
