@@ -20,16 +20,41 @@
 
 ### 压缩部分
 
+> 安装部分
+
 在./cpp路径下cmake，需要手动设置zlib以及dracoenc两个静态库
 
 注意cygwin编译zlib时需要处理wopen问题
 
+> 测试部分
+
+通过make后，使用bin中的testEncoder
+
+```powershell
+# encode a gltf file and get a zglb file
+./testEncoder.exe -E "path/to/a/gltf/file"
+# decode a zglb file and get a glb file
+./testEncoder.exe -D "path/to/a/zglb/file"
+# encode and decode and get a zglb and glb file
+./testEncoder.exe -ED "path/to/a/gltf/file"
+```
+
 ### 解压部分
+
+> 安装部分
 
 ./javascript路径下
 
 ```shell
 npm install
+```
+
+> 测试部分
+
+**保证在javascript路径下有example文件夹，且文件夹中含有一个zglb文件**
+
+```shell
+npm run test
 ```
 
 ## 使用
