@@ -3,7 +3,7 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <LocalDebuggerWorkingDirectory>../TestEncoder</LocalDebuggerWorkingDirectory>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
-    <LocalDebuggerCommandArguments>-ED "C:\LC\WorkSpace\AboutGLTF\cpp\EncodeGLTF\Test_Set\DamageHelmet\DamagedHelmet.gltf"</LocalDebuggerCommandArguments>
+    <LocalDebuggerCommandArguments>-ED "C:\LC\ChromeDownload\dracoTestSet\model.u-bim.com\model\给排水-消火栓.gltf"</LocalDebuggerCommandArguments>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LocalDebuggerWorkingDirectory>../TestEncoder</LocalDebuggerWorkingDirectory>

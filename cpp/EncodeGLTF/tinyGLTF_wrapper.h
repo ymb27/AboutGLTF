@@ -101,7 +101,7 @@ namespace tinygltf_wrapper {
 		std::vector<uint8_t> packBuffer() const {
 			std::vector<uint8_t> res;
 			res.resize(m_count * m_size);
-			uint8_t* res_ptr = &res[0];
+			uint8_t* res_ptr = res.data();
 			for (uint32_t i = 0; i < m_count; ++i) {
 				memcpy(res_ptr, m_data + i * m_stride, m_size);
 				res_ptr += m_size;

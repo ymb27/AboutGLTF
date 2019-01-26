@@ -4562,6 +4562,11 @@ static void SerializeGltfNode(Node &node, json &o) {
   SerializeExtensionMap(node.extensions, o);
   if (!node.name.empty()) SerializeStringProperty("name", node.name, o);
   SerializeNumberArrayProperty<int>("children", node.children, o);
+#ifdef TINYGLTF_USER_EXT
+  // prevent output null object
+  SerializeValue("placeHolder", Value(true), o);
+#endif // TINYGLTF_USER_EXT
+
 }
 
 static void SerializeGltfSampler(Sampler &sampler, json &o) {

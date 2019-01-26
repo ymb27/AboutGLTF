@@ -77,8 +77,8 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>true</LinkIncremental>
     <OutDir>../build/bin/</OutDir>
-    <IncludePath>../EncodeGLTF;$(IncludePath)</IncludePath>
-    <LibraryPath>../build/lib;$(LibraryPath)</LibraryPath>
+    <IncludePath>../3rdpart/zlib/include;../EncodeGLTF;$(IncludePath)</IncludePath>
+    <LibraryPath>../3rdpart/zlib/lib;../build/lib;$(LibraryPath)</LibraryPath>
     <IntDir>$(ProjectName)\$(Configuration)\</IntDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -121,7 +121,7 @@
       <SubSystem>Console</SubSystem>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <AdditionalDependencies>DracoGltf.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>EncodeGltf.lib;zlibstaticd.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">

@@ -77,8 +77,8 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>true</LinkIncremental>
-    <IncludePath>../3rdpart/tinygltf/include;../3rdpart/draco/include;$(IncludePath)</IncludePath>
-    <LibraryPath>../3rdpart/draco/lib;$(LibraryPath)</LibraryPath>
+    <IncludePath>../3rdpart/zlib/include;../3rdpart/tinygltf/include;../3rdpart/draco/include;$(IncludePath)</IncludePath>
+    <LibraryPath>../3rdpart/zlib/lib;../3rdpart/draco/lib;$(LibraryPath)</LibraryPath>
     <OutDir>../build/lib/</OutDir>
     <IntDir>$(ProjectName)\$(Configuration)\</IntDir>
   </PropertyGroup>
@@ -116,7 +116,7 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
-      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;NOMINMAX;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
       <WarningLevel>Level3</WarningLevel>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
@@ -129,7 +129,7 @@
       <OptimizeReferences>true</OptimizeReferences>
     </Link>
     <Lib>
-      <AdditionalDependencies>dracoenc.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>dracoenc.lib;zlibstaticd.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Lib>
     <ProjectReference>
       <LinkLibraryDependencies>true</LinkLibraryDependencies>

@@ -168,7 +168,7 @@ bool FileCompare(const char* f1, const char* f2, float threshould = 0.0001f) {
 
 template<typename T>
 inline void Test_Log(T t) {
-	std::cout << t << std::endl;
+	std::cout << t << '\n';
 }
 template<typename T, typename ... Args>
 inline void Test_Log(T t, Args... args) {

@@ -35,6 +35,8 @@ struct {
 
 /* load model data from json data */
 inline GE_STATE loadModel(const std::string& jsonData, tinygltf::Model* outputModel, const std::string& baseDir);
+
+/* UNSTABLE FUNCTION, DEPRECATED! */
 /* set explicit attribute quantization. */
 /* Get max/min value and number of components refer to accessor */
 /* set quantization bits, according to attribute |type| */
@@ -190,21 +192,23 @@ GE_STATE loadModel(const std::string& jData, tinygltf::Model* gltf, const std::s
 
 inline void encoderSettingHelper(draco::Encoder& encoder, const draco::GeometryAttribute::Type type,
 	const int defBit, const int optBit, const tinygltf::Accessor& acc, const int numOfCmp) {
-	if (acc.minValues.size() != numOfCmp || acc.maxValues.size() != numOfCmp) {
-		/* It seems max/min value is not correct, use default setting*/
-		encoder.SetAttributeQuantization(type, defBit);
-	}
-	else {
-		/* WARNNING! I don't promise that such quantization bit setting is right but it work! :) */
-		std::vector<float> candidateRange(numOfCmp);
-		std::vector<float> origin(numOfCmp);
-		for (int i = 0; i < numOfCmp; ++i) {
-			origin[i] = static_cast<float>(acc.minValues[i]);
-			candidateRange[i] = static_cast<float>(acc.maxValues[i] - acc.minValues[i]);
-		}
-		float range = *std::max_element(candidateRange.begin(), candidateRange.end());
-		encoder.SetAttributeExplicitQuantization(type, optBit, numOfCmp, origin.data(), range);
-	}
+	// unstable function, deprecated
+	return;
+	//if (acc.minValues.size() != numOfCmp || acc.maxValues.size() != numOfCmp) {
+	//	/* It seems max/min value is not correct, use default setting*/
+	//	encoder.SetAttributeQuantization(type, defBit);
+	//}
+	//else {
+	//	/* WARNNING! I don't promise that such quantization bit setting is right but it work! :) */
+	//	std::vector<float> candidateRange(numOfCmp);
+	//	std::vector<float> origin(numOfCmp);
+	//	for (int i = 0; i < numOfCmp; ++i) {
+	//		origin[i] = static_cast<float>(acc.minValues[i]);
+	//		candidateRange[i] = static_cast<float>(acc.maxValues[i] - acc.minValues[i]);
+	//	}
+	//	float range = *std::max_element(candidateRange.begin(), candidateRange.end());
+	//	encoder.SetAttributeExplicitQuantization(type, optBit, numOfCmp, origin.data(), range);
+	//}
 }
 
 GE_STATE makeMesh(const tinygltf::Primitive& pri,
@@ -222,8 +226,9 @@ GE_STATE makeMesh(const tinygltf::Primitive& pri,
 	m.set_num_points(numOfPoints);
 
 	enum {
+		INVALID,
 		TANGENT
-	} extentPointType;
+	} extentPointType = INVALID;
 
 	/* processing index */
 	/* WARNNING index is not required property! */
@@ -250,10 +255,11 @@ GE_STATE makeMesh(const tinygltf::Primitive& pri,
 	}
 	/* processing attributes */
 	for (const auto& iter : pri.attributes) {
-		draco::GeometryAttribute::Type geoAttType;
+		draco::GeometryAttribute::Type geoAttType = draco::GeometryAttribute::Type::INVALID;
 		draco::DataType geoDataType = draco::DataType::DT_INVALID;
 		const tinygltf::Accessor& attAcc = gltf.accessors[iter.second];
 		int8_t numOfCmp = 0;
+		extentPointType = INVALID;
 		if (!iter.first.compare("POSITION")) {
 			geoAttType = draco::GeometryAttribute::POSITION;
 			geoDataType = draco::DataType::DT_FLOAT32;
@@ -348,7 +354,8 @@ GE_STATE makeMesh(const tinygltf::Primitive& pri,
 				break;
 			}
 		}
-		m.attribute(attID)->buffer()->Write(0, &dc.packBuffer()[0], dc.size() * dc.count());
+
+		m.attribute(attID)->buffer()->Write(0, dc.packBuffer().data(), dc.size() * dc.count());
 		m.SetAttributeElementType(attID, draco::MeshAttributeElementType::MESH_VERTEX_ATTRIBUTE);
 	}
 
@@ -359,6 +366,7 @@ GE_STATE compressMesh(std::unique_ptr<draco::Mesh>& inputMesh,
 	draco::Encoder& encoder,
 	std::unique_ptr< std::vector<uint8_t> >& outputBuffer) {
 	/* General Setting */
+	encoder.SetSpeedOptions(3, 3);
 	encoder.SetAttributeQuantization(draco::GeometryAttribute::GENERIC, 12);
 #ifdef TEST_COMPRESS
 	encoder.SetTrackEncodedProperties(true);
